@@ -1,0 +1,429 @@
+
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, CheckCircle2 } from "lucide-react";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { useToast } from "@/hooks/use-toast";
+
+const services = [
+  { id: "oil-change", name: "Oil Change", price: "$45.99" },
+  { id: "general-service", name: "General Service", price: "$150.00" },
+  { id: "brake-service", name: "Brake Service", price: "$220.50" },
+  { id: "tire-rotation", name: "Tire Rotation", price: "$35.00" },
+  { id: "ac-service", name: "AC Service", price: "$85.00" },
+  { id: "diagnostics", name: "Computer Diagnostics", price: "$75.00" },
+];
+
+const Booking = () => {
+  const [step, setStep] = useState(1);
+  const [selectedService, setSelectedService] = useState("");
+  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [time, setTime] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [carMake, setCarMake] = useState("");
+  const [carModel, setCarModel] = useState("");
+  const [carYear, setCarYear] = useState("");
+  const [additionalInfo, setAdditionalInfo] = useState("");
+  const [bookingComplete, setBookingComplete] = useState(false);
+  
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleNextStep = () => {
+    // Validate current step
+    if (step === 1 && !selectedService) {
+      toast({
+        title: "Please select a service",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (step === 2 && (!date || !time)) {
+      toast({
+        title: "Please select a date and time",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (step === 3 && (!name || !email || !phone || !carMake || !carModel || !carYear)) {
+      toast({
+        title: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (step < 4) {
+      setStep(step + 1);
+    } else {
+      // Submit booking
+      setTimeout(() => {
+        setBookingComplete(true);
+        toast({
+          title: "Booking Successful",
+          description: "Your service has been scheduled",
+        });
+      }, 1500);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    }
+  };
+
+  const getServicePrice = () => {
+    const service = services.find(s => s.id === selectedService);
+    return service ? service.price : "";
+  };
+
+  const getServiceName = () => {
+    const service = services.find(s => s.id === selectedService);
+    return service ? service.name : "";
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-grow py-10 bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-extrabold text-carservice-dark sm:text-4xl">
+              Book a Service
+            </h1>
+            <p className="mt-4 text-lg text-gray-500">
+              Schedule your car service in just a few easy steps
+            </p>
+          </div>
+
+          {!bookingComplete ? (
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+              {/* Progress Steps */}
+              <div className="p-4 bg-gray-50 border-b">
+                <div className="flex justify-between">
+                  <div className={`flex flex-col items-center ${step >= 1 ? "text-carservice-blue" : "text-gray-400"}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${step >= 1 ? "border-carservice-blue bg-carservice-blue text-white" : "border-gray-300"}`}>
+                      1
+                    </div>
+                    <span className="text-xs mt-1">Service</span>
+                  </div>
+                  <div className={`flex-1 border-t-2 mt-4 ${step >= 2 ? "border-carservice-blue" : "border-gray-300"}`}></div>
+                  <div className={`flex flex-col items-center ${step >= 2 ? "text-carservice-blue" : "text-gray-400"}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${step >= 2 ? "border-carservice-blue bg-carservice-blue text-white" : "border-gray-300"}`}>
+                      2
+                    </div>
+                    <span className="text-xs mt-1">Date & Time</span>
+                  </div>
+                  <div className={`flex-1 border-t-2 mt-4 ${step >= 3 ? "border-carservice-blue" : "border-gray-300"}`}></div>
+                  <div className={`flex flex-col items-center ${step >= 3 ? "text-carservice-blue" : "text-gray-400"}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${step >= 3 ? "border-carservice-blue bg-carservice-blue text-white" : "border-gray-300"}`}>
+                      3
+                    </div>
+                    <span className="text-xs mt-1">Your Info</span>
+                  </div>
+                  <div className={`flex-1 border-t-2 mt-4 ${step >= 4 ? "border-carservice-blue" : "border-gray-300"}`}></div>
+                  <div className={`flex flex-col items-center ${step >= 4 ? "text-carservice-blue" : "text-gray-400"}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${step >= 4 ? "border-carservice-blue bg-carservice-blue text-white" : "border-gray-300"}`}>
+                      4
+                    </div>
+                    <span className="text-xs mt-1">Confirm</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {step === 1 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold text-carservice-dark">Select a Service</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {services.map((service) => (
+                        <Card 
+                          key={service.id}
+                          className={`cursor-pointer transition-all ${
+                            selectedService === service.id 
+                              ? "border-carservice-blue ring-2 ring-carservice-blue ring-opacity-50" 
+                              : "border-gray-200 hover:border-carservice-blue"
+                          }`}
+                          onClick={() => setSelectedService(service.id)}
+                        >
+                          <CardContent className="p-4 flex justify-between items-center">
+                            <div>
+                              <h3 className="font-medium">{service.name}</h3>
+                              <p className="text-sm text-carservice-blue font-semibold">{service.price}</p>
+                            </div>
+                            {selectedService === service.id && (
+                              <CheckCircle2 className="h-5 w-5 text-carservice-blue" />
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {step === 2 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold text-carservice-dark">Select Date & Time</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <Label>Select Date</Label>
+                        <div className="mt-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !date && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {date ? format(date, "PPP") : <span>Pick a date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={date}
+                                onSelect={setDate}
+                                initialFocus
+                                disabled={(date) => {
+                                  // Disable past dates and weekends
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const day = date.getDay();
+                                  return date < today || day === 0;
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label>Select Time</Label>
+                        <div className="mt-2">
+                          <Select value={time} onValueChange={setTime}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="09:00">9:00 AM</SelectItem>
+                              <SelectItem value="10:00">10:00 AM</SelectItem>
+                              <SelectItem value="11:00">11:00 AM</SelectItem>
+                              <SelectItem value="13:00">1:00 PM</SelectItem>
+                              <SelectItem value="14:00">2:00 PM</SelectItem>
+                              <SelectItem value="15:00">3:00 PM</SelectItem>
+                              <SelectItem value="16:00">4:00 PM</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {step === 3 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold text-carservice-dark">Your Information</h2>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Full Name</Label>
+                          <Input 
+                            id="name" 
+                            placeholder="John Doe" 
+                            value={name} 
+                            onChange={(e) => setName(e.target.value)} 
+                            required 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email</Label>
+                          <Input 
+                            id="email" 
+                            type="email" 
+                            placeholder="john@example.com" 
+                            value={email} 
+                            onChange={(e) => setEmail(e.target.value)} 
+                            required 
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input 
+                          id="phone" 
+                          placeholder="(123) 456-7890" 
+                          value={phone} 
+                          onChange={(e) => setPhone(e.target.value)} 
+                          required 
+                        />
+                      </div>
+
+                      <div className="pt-4 border-t">
+                        <h3 className="text-lg font-medium text-carservice-dark mb-4">Car Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="carMake">Make</Label>
+                            <Input 
+                              id="carMake" 
+                              placeholder="Toyota" 
+                              value={carMake} 
+                              onChange={(e) => setCarMake(e.target.value)} 
+                              required 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="carModel">Model</Label>
+                            <Input 
+                              id="carModel" 
+                              placeholder="Camry" 
+                              value={carModel} 
+                              onChange={(e) => setCarModel(e.target.value)} 
+                              required 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="carYear">Year</Label>
+                            <Input 
+                              id="carYear" 
+                              placeholder="2020" 
+                              value={carYear} 
+                              onChange={(e) => setCarYear(e.target.value)} 
+                              required 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="additionalInfo">Additional Information (Optional)</Label>
+                        <Textarea 
+                          id="additionalInfo" 
+                          placeholder="Any specific issues or concerns about your vehicle?"
+                          value={additionalInfo}
+                          onChange={(e) => setAdditionalInfo(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {step === 4 && (
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-semibold text-carservice-dark">Confirm Your Booking</h2>
+                    <div className="border rounded-lg p-4 space-y-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <p className="text-sm text-gray-500">Service:</p>
+                        <p className="text-sm font-medium">{getServiceName()}</p>
+                        
+                        <p className="text-sm text-gray-500">Date:</p>
+                        <p className="text-sm font-medium">
+                          {date ? format(date, "PPP") : "Not selected"}
+                        </p>
+                        
+                        <p className="text-sm text-gray-500">Time:</p>
+                        <p className="text-sm font-medium">
+                          {time ? `${time.slice(0, 2)}:${time.slice(2)} ${parseInt(time) < 12 ? "AM" : "PM"}` : "Not selected"}
+                        </p>
+                        
+                        <p className="text-sm text-gray-500">Name:</p>
+                        <p className="text-sm font-medium">{name}</p>
+                        
+                        <p className="text-sm text-gray-500">Contact:</p>
+                        <p className="text-sm font-medium">{email} | {phone}</p>
+                        
+                        <p className="text-sm text-gray-500">Vehicle:</p>
+                        <p className="text-sm font-medium">{carYear} {carMake} {carModel}</p>
+                        
+                        <p className="text-sm text-gray-500">Price:</p>
+                        <p className="text-sm font-medium text-carservice-blue">{getServicePrice()}</p>
+                      </div>
+                      
+                      {additionalInfo && (
+                        <div className="mt-2 pt-2 border-t">
+                          <p className="text-sm text-gray-500">Additional Info:</p>
+                          <p className="text-sm">{additionalInfo}</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="text-sm text-gray-500">
+                      <p>By confirming this booking, you agree to our terms and conditions.</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-8 pt-6 border-t flex justify-between">
+                  <Button
+                    variant="outline"
+                    onClick={handlePreviousStep}
+                    disabled={step === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button onClick={handleNextStep}>
+                    {step < 4 ? "Next" : "Confirm Booking"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white shadow-md rounded-lg overflow-hidden p-8 text-center animate-fade-in">
+              <div className="flex flex-col items-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-carservice-dark mb-2">Booking Confirmed!</h2>
+                <p className="text-gray-500 mb-6">
+                  Your appointment has been scheduled for {date ? format(date, "PPP") : ""} at {time ? `${time.slice(0, 2)}:${time.slice(2)} ${parseInt(time) < 12 ? "AM" : "PM"}` : ""}.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-6 w-full max-w-md">
+                  <div className="text-left">
+                    <p className="text-sm"><span className="font-medium">Service:</span> {getServiceName()}</p>
+                    <p className="text-sm"><span className="font-medium">Vehicle:</span> {carYear} {carMake} {carModel}</p>
+                    <p className="text-sm"><span className="font-medium">Booking Reference:</span> #{Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}</p>
+                  </div>
+                </div>
+                
+                <p className="text-gray-500 mb-6">
+                  We've sent a confirmation email to {email} with all the details.
+                </p>
+                
+                <div className="flex space-x-4">
+                  <Button variant="outline" asChild>
+                    <a href="/dashboard">Go to Dashboard</a>
+                  </Button>
+                  <Button asChild>
+                    <a href="/">Return to Home</a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Booking;
