@@ -52,6 +52,16 @@ const Register = () => {
       // For demo purposes only - in a real app you would register with a backend
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userRole", "user");
+      
+      // Store user information
+      const userData = {
+        fullName,
+        email,
+        phone,
+        address: "" // Adding empty address field that user can update later
+      };
+      localStorage.setItem("userData", JSON.stringify(userData));
+      
       toast({
         title: "Registration successful",
         description: "Your account has been created",

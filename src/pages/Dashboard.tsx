@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,13 @@ import { Bell, Calendar, CarFront, FileText, Settings, User } from "lucide-react
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+
+interface UserData {
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+}
 
 // Mock data for vehicles
 const userVehicles = [
@@ -36,14 +42,27 @@ const notifications = [
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [userData, setUserData] = useState<UserData>({
+    fullName: "",
+    email: "",
+    phone: "",
+    address: ""
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check if user is logged in
+  // Check if user is logged in and load user data
   useEffect(() => {
     const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
     if (!isLoggedIn) {
       navigate("/login");
+      return;
+    }
+    
+    // Load user data from localStorage
+    const storedUserData = localStorage.getItem("userData");
+    if (storedUserData) {
+      setUserData(JSON.parse(storedUserData));
     }
   }, [navigate]);
   
@@ -396,19 +415,19 @@ const Dashboard = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="text-sm font-medium">Full Name</label>
-                        <p className="mt-1">John Doe</p>
+                        <p className="mt-1">{userData.fullName || "Not provided"}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium">Email</label>
-                        <p className="mt-1">johndoe@example.com</p>
+                        <p className="mt-1">{userData.email || "Not provided"}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium">Phone Number</label>
-                        <p className="mt-1">(555) 123-4567</p>
+                        <p className="mt-1">{userData.phone ? `+91 ${userData.phone}` : "Not provided"}</p>
                       </div>
                       <div>
                         <label className="text-sm font-medium">Address</label>
-                        <p className="mt-1">123 Main St, Anytown, USA</p>
+                        <p className="mt-1">{userData.address || "Not provided"}</p>
                       </div>
                     </div>
                     <Button variant="outline">
