@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, KeyRound } from "lucide-react";
+import { Car, KeyRound, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("user");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -21,29 +23,40 @@ const Login = () => {
 
     // Simulate API call
     setTimeout(() => {
-      // For demo purposes only - in a real app you would authenticate with a backend
-      if (email === "user@example.com" && password === "password") {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", "user");
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
-        navigate("/dashboard");
-      } else if (email === "admin@example.com" && password === "admin") {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", "admin");
-        toast({
-          title: "Admin Login successful",
-          description: "Welcome back, Admin!",
-        });
-        navigate("/admin");
+      if (activeTab === "user") {
+        // User login
+        if (email === "user@example.com" && password === "password") {
+          localStorage.setItem("isLoggedIn", "true");
+          localStorage.setItem("userRole", "user");
+          toast({
+            title: "Login successful",
+            description: "Welcome back!",
+          });
+          navigate("/dashboard");
+        } else {
+          toast({
+            title: "Login failed",
+            description: "Invalid email or password",
+            variant: "destructive",
+          });
+        }
       } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password",
-          variant: "destructive",
-        });
+        // Admin login
+        if (email === "admin@example.com" && password === "admin") {
+          localStorage.setItem("isLoggedIn", "true");
+          localStorage.setItem("userRole", "admin");
+          toast({
+            title: "Admin Login successful",
+            description: "Welcome back, Admin!",
+          });
+          navigate("/admin");
+        } else {
+          toast({
+            title: "Admin Login failed",
+            description: "Invalid admin credentials",
+            variant: "destructive",
+          });
+        }
       }
       setIsLoading(false);
     }, 1500);
@@ -65,54 +78,122 @@ const Login = () => {
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-sm font-medium text-carservice-blue hover:underline">
-                    Forgot password?
-                  </Link>
-                </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <span className="flex items-center">
-                    <KeyRound className="mr-2 h-4 w-4 animate-spin" /> Signing in...
-                  </span>
-                ) : (
-                  "Sign in"
-                )}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab} 
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="user" className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" /> User Login
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" /> Admin Login
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="user">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">User Login</CardTitle>
+                <CardDescription>Enter your credentials to access your account</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="email@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password">Password</Label>
+                      <Link to="/forgot-password" className="text-sm font-medium text-carservice-blue hover:underline">
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <span className="flex items-center">
+                        <KeyRound className="mr-2 h-4 w-4 animate-spin" /> Signing in...
+                      </span>
+                    ) : (
+                      "Sign in"
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="admin">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">Admin Login</CardTitle>
+                <CardDescription>Enter your admin credentials</CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-email">Email</Label>
+                    <Input
+                      id="admin-email"
+                      type="email"
+                      placeholder="admin@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="admin-password">Password</Label>
+                      <Link to="/forgot-password" className="text-sm font-medium text-carservice-blue hover:underline">
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <Input
+                      id="admin-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <span className="flex items-center">
+                        <KeyRound className="mr-2 h-4 w-4 animate-spin" /> Signing in...
+                      </span>
+                    ) : (
+                      "Admin Sign in"
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         <div className="text-center mt-4">
           <p className="text-sm text-gray-500">
