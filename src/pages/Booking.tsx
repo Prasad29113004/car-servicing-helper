@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, CheckCircle2 } from "lucide-react";
@@ -17,17 +18,17 @@ import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 
 const services = [
-  { id: "oil-change", name: "Oil Change", price: "$45.99" },
-  { id: "general-service", name: "General Service", price: "$150.00" },
-  { id: "brake-service", name: "Brake Service", price: "$220.50" },
-  { id: "tire-rotation", name: "Tire Rotation", price: "$35.00" },
-  { id: "ac-service", name: "AC Service", price: "$85.00" },
-  { id: "diagnostics", name: "Computer Diagnostics", price: "$75.00" },
+  { id: "oil-change", name: "Oil Change", price: "₹999" },
+  { id: "general-service", name: "General Service", price: "₹2,999" },
+  { id: "brake-service", name: "Brake Service", price: "₹4,499" },
+  { id: "tire-rotation", name: "Tire Rotation", price: "₹799" },
+  { id: "ac-service", name: "AC Service", price: "₹1,899" },
+  { id: "diagnostics", name: "Computer Diagnostics", price: "₹1,499" },
 ];
 
 const Booking = () => {
   const [step, setStep] = useState(1);
-  const [selectedService, setSelectedService] = useState("");
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [time, setTime] = useState("");
   const [name, setName] = useState("");
@@ -44,9 +45,9 @@ const Booking = () => {
 
   const handleNextStep = () => {
     // Validate current step
-    if (step === 1 && !selectedService) {
+    if (step === 1 && selectedServices.length === 0) {
       toast({
-        title: "Please select a service",
+        title: "Please select at least one service",
         variant: "destructive",
       });
       return;
@@ -88,14 +89,32 @@ const Booking = () => {
     }
   };
 
-  const getServicePrice = () => {
-    const service = services.find(s => s.id === selectedService);
-    return service ? service.price : "";
+  const toggleService = (serviceId: string) => {
+    setSelectedServices(prev => {
+      if (prev.includes(serviceId)) {
+        return prev.filter(id => id !== serviceId);
+      } else {
+        return [...prev, serviceId];
+      }
+    });
   };
 
-  const getServiceName = () => {
-    const service = services.find(s => s.id === selectedService);
-    return service ? service.name : "";
+  const getTotalPrice = () => {
+    let total = 0;
+    selectedServices.forEach(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      if (service) {
+        total += parseInt(service.price.replace(/[₹,]/g, ''));
+      }
+    });
+    return `₹${total.toLocaleString('en-IN')}`;
+  };
+
+  const getServiceNames = () => {
+    return selectedServices.map(serviceId => {
+      const service = services.find(s => s.id === serviceId);
+      return service ? service.name : "";
+    }).join(", ");
   };
 
   return (
@@ -150,30 +169,48 @@ const Booking = () => {
               <div className="p-6">
                 {step === 1 && (
                   <div className="space-y-6">
-                    <h2 className="text-xl font-semibold text-carservice-dark">Select a Service</h2>
+                    <h2 className="text-xl font-semibold text-carservice-dark">Select Services</h2>
+                    <p className="text-sm text-gray-500">Select multiple services as needed for your vehicle</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {services.map((service) => (
                         <Card 
                           key={service.id}
                           className={`cursor-pointer transition-all ${
-                            selectedService === service.id 
+                            selectedServices.includes(service.id) 
                               ? "border-carservice-blue ring-2 ring-carservice-blue ring-opacity-50" 
                               : "border-gray-200 hover:border-carservice-blue"
                           }`}
-                          onClick={() => setSelectedService(service.id)}
+                          onClick={() => toggleService(service.id)}
                         >
                           <CardContent className="p-4 flex justify-between items-center">
-                            <div>
-                              <h3 className="font-medium">{service.name}</h3>
-                              <p className="text-sm text-carservice-blue font-semibold">{service.price}</p>
+                            <div className="flex items-center space-x-3">
+                              <Checkbox 
+                                checked={selectedServices.includes(service.id)}
+                                onCheckedChange={() => toggleService(service.id)}
+                                className="h-5 w-5"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <div>
+                                <h3 className="font-medium">{service.name}</h3>
+                                <p className="text-sm text-carservice-blue font-semibold">{service.price}</p>
+                              </div>
                             </div>
-                            {selectedService === service.id && (
+                            {selectedServices.includes(service.id) && (
                               <CheckCircle2 className="h-5 w-5 text-carservice-blue" />
                             )}
                           </CardContent>
                         </Card>
                       ))}
                     </div>
+                    
+                    {selectedServices.length > 0 && (
+                      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Total:</span>
+                          <span className="text-lg font-bold text-carservice-blue">{getTotalPrice()}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -331,8 +368,8 @@ const Booking = () => {
                     <h2 className="text-xl font-semibold text-carservice-dark">Confirm Your Booking</h2>
                     <div className="border rounded-lg p-4 space-y-4">
                       <div className="grid grid-cols-2 gap-2">
-                        <p className="text-sm text-gray-500">Service:</p>
-                        <p className="text-sm font-medium">{getServiceName()}</p>
+                        <p className="text-sm text-gray-500">Services:</p>
+                        <p className="text-sm font-medium">{getServiceNames()}</p>
                         
                         <p className="text-sm text-gray-500">Date:</p>
                         <p className="text-sm font-medium">
@@ -353,8 +390,8 @@ const Booking = () => {
                         <p className="text-sm text-gray-500">Vehicle:</p>
                         <p className="text-sm font-medium">{carYear} {carMake} {carModel}</p>
                         
-                        <p className="text-sm text-gray-500">Price:</p>
-                        <p className="text-sm font-medium text-carservice-blue">{getServicePrice()}</p>
+                        <p className="text-sm text-gray-500">Total Price:</p>
+                        <p className="text-sm font-medium text-carservice-blue">{getTotalPrice()}</p>
                       </div>
                       
                       {additionalInfo && (
@@ -398,8 +435,9 @@ const Booking = () => {
                 
                 <div className="bg-gray-50 p-4 rounded-lg mb-6 w-full max-w-md">
                   <div className="text-left">
-                    <p className="text-sm"><span className="font-medium">Service:</span> {getServiceName()}</p>
+                    <p className="text-sm"><span className="font-medium">Services:</span> {getServiceNames()}</p>
                     <p className="text-sm"><span className="font-medium">Vehicle:</span> {carYear} {carMake} {carModel}</p>
+                    <p className="text-sm"><span className="font-medium">Total Amount:</span> {getTotalPrice()}</p>
                     <p className="text-sm"><span className="font-medium">Booking Reference:</span> #{Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}</p>
                   </div>
                 </div>

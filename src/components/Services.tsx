@@ -14,31 +14,37 @@ export default function Services() {
     {
       title: "General Service",
       description: "Complete check-up and maintenance of your vehicle",
+      price: "₹2,999",
       icon: Wrench,
     },
     {
       title: "Engine Repair",
       description: "Expert diagnosis and repair for all engine problems",
+      price: "₹4,999",
       icon: Cog,
     },
     {
       title: "AC Service",
       description: "Full air conditioning system check and recharge",
+      price: "₹1,899",
       icon: Sparkles,
     },
     {
       title: "Oil Change",
       description: "Regular oil changes to keep your engine running smoothly",
+      price: "₹999",
       icon: Fuel,
     },
     {
       title: "Wheel Alignment",
       description: "Precision wheel alignment for better handling and tire life",
+      price: "₹1,499",
       icon: Car,
     },
     {
       title: "Diagnostics",
       description: "Advanced computer diagnostics to identify issues",
+      price: "₹1,499",
       icon: Gauge,
     },
   ];
@@ -65,7 +71,8 @@ export default function Services() {
                 <CardTitle className="text-xl font-bold text-carservice-dark">{service.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <CardDescription className="text-gray-500">{service.description}</CardDescription>
+                <CardDescription className="text-gray-500 mb-2">{service.description}</CardDescription>
+                <p className="text-carservice-blue font-semibold">{service.price}</p>
               </CardContent>
             </Card>
           ))}
