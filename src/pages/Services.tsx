@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import Services from "@/components/Services";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Car, Check, Clock, Shield, Star, Tool } from "lucide-react";
+import { Car, Check, Clock, Shield, Star, Wrench } from "lucide-react";
 
 const ServicesPage = () => {
   return (
@@ -40,7 +40,7 @@ const ServicesPage = () => {
             <div className="grid gap-10 md:grid-cols-3">
               <div className="text-center">
                 <div className="w-16 h-16 bg-carservice-blue bg-opacity-10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Tool className="h-8 w-8 text-carservice-blue" />
+                  <Wrench className="h-8 w-8 text-carservice-blue" />
                 </div>
                 <h3 className="text-xl font-bold text-carservice-dark mb-2">Certified Technicians</h3>
                 <p className="text-gray-500">
