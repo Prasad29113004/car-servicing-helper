@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,14 +15,21 @@ import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const services = [
   { id: "oil-change", name: "Oil Change", price: "₹999" },
   { id: "general-service", name: "General Service", price: "₹2,999" },
   { id: "brake-service", name: "Brake Service", price: "₹4,499" },
-  { id: "tire-rotation", name: "Tire Rotation", price: "₹799" },
+  { id: "tire-rotation", name: "Tyre Rotation", price: "₹799" },
   { id: "ac-service", name: "AC Service", price: "₹1,899" },
   { id: "diagnostics", name: "Computer Diagnostics", price: "₹1,499" },
+];
+
+const popularCarMakes = [
+  "Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Honda", 
+  "Toyota", "Kia", "MG", "Skoda", "Volkswagen", "Ford",
+  "Renault", "Nissan", "Jeep", "Mercedes-Benz", "BMW", "Audi"
 ];
 
 const Booking = () => {
@@ -43,8 +49,12 @@ const Booking = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validatePhone = (phoneNumber: string) => {
+    const regex = /^[6-9]\d{9}$/;
+    return regex.test(phoneNumber);
+  };
+
   const handleNextStep = () => {
-    // Validate current step
     if (step === 1 && selectedServices.length === 0) {
       toast({
         title: "Please select at least one service",
@@ -61,18 +71,28 @@ const Booking = () => {
       return;
     }
 
-    if (step === 3 && (!name || !email || !phone || !carMake || !carModel || !carYear)) {
-      toast({
-        title: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+    if (step === 3) {
+      if (!name || !email || !phone || !carMake || !carModel || !carYear) {
+        toast({
+          title: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!validatePhone(phone)) {
+        toast({
+          title: "Invalid phone number",
+          description: "Please enter a valid 10-digit Indian mobile number",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (step < 4) {
       setStep(step + 1);
     } else {
-      // Submit booking
       setTimeout(() => {
         setBookingComplete(true);
         toast({
@@ -241,7 +261,6 @@ const Booking = () => {
                                 onSelect={setDate}
                                 initialFocus
                                 disabled={(date) => {
-                                  // Disable past dates and weekends
                                   const today = new Date();
                                   today.setHours(0, 0, 0, 0);
                                   const day = date.getDay();
@@ -285,7 +304,7 @@ const Booking = () => {
                           <Label htmlFor="name">Full Name</Label>
                           <Input 
                             id="name" 
-                            placeholder="John Doe" 
+                            placeholder="Rahul Sharma" 
                             value={name} 
                             onChange={(e) => setName(e.target.value)} 
                             required 
@@ -296,7 +315,7 @@ const Booking = () => {
                           <Input 
                             id="email" 
                             type="email" 
-                            placeholder="john@example.com" 
+                            placeholder="rahul.sharma@example.com" 
                             value={email} 
                             onChange={(e) => setEmail(e.target.value)} 
                             required 
@@ -304,14 +323,16 @@ const Booking = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
+                        <Label htmlFor="phone">Mobile Number</Label>
                         <Input 
                           id="phone" 
-                          placeholder="(123) 456-7890" 
+                          placeholder="9876543210" 
                           value={phone} 
-                          onChange={(e) => setPhone(e.target.value)} 
+                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} 
                           required 
+                          maxLength={10}
                         />
+                        <p className="text-xs text-gray-500">Enter 10-digit mobile number without country code</p>
                       </div>
 
                       <div className="pt-4 border-t">
@@ -319,19 +340,30 @@ const Booking = () => {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="carMake">Make</Label>
-                            <Input 
-                              id="carMake" 
-                              placeholder="Toyota" 
-                              value={carMake} 
-                              onChange={(e) => setCarMake(e.target.value)} 
-                              required 
-                            />
+                            <Select value={carMake} onValueChange={setCarMake}>
+                              <SelectTrigger id="carMake">
+                                <SelectValue placeholder="Select car make" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {popularCarMakes.map((make) => (
+                                  <SelectItem key={make} value={make}>{make}</SelectItem>
+                                ))}
+                                <SelectItem value="other">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {carMake === "other" && (
+                              <Input 
+                                placeholder="Enter car make" 
+                                onChange={(e) => setCarMake(e.target.value)} 
+                                className="mt-2" 
+                              />
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="carModel">Model</Label>
                             <Input 
                               id="carModel" 
-                              placeholder="Camry" 
+                              placeholder="Swift" 
                               value={carModel} 
                               onChange={(e) => setCarModel(e.target.value)} 
                               required 
@@ -343,8 +375,9 @@ const Booking = () => {
                               id="carYear" 
                               placeholder="2020" 
                               value={carYear} 
-                              onChange={(e) => setCarYear(e.target.value)} 
+                              onChange={(e) => setCarYear(e.target.value.replace(/\D/g, '').slice(0, 4))} 
                               required 
+                              maxLength={4}
                             />
                           </div>
                         </div>
@@ -390,7 +423,7 @@ const Booking = () => {
                         <p className="text-sm text-gray-500">Vehicle:</p>
                         <p className="text-sm font-medium">{carYear} {carMake} {carModel}</p>
                         
-                        <p className="text-sm text-gray-500">Total Price:</p>
+                        <p className="text-sm text-gray-500">Total Amount:</p>
                         <p className="text-sm font-medium text-carservice-blue">{getTotalPrice()}</p>
                       </div>
                       

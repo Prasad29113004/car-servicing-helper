@@ -31,13 +31,13 @@ export default function Services() {
     },
     {
       title: "Oil Change",
-      description: "Regular oil changes to keep your engine running smoothly",
+      description: "Premium quality engine oil change for smooth performance",
       price: "₹999",
       icon: Fuel,
     },
     {
       title: "Wheel Alignment",
-      description: "Precision wheel alignment for better handling and tire life",
+      description: "Precision wheel alignment for better handling and tyre life",
       price: "₹1,499",
       icon: Car,
     },

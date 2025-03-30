@@ -11,11 +11,18 @@ import { useToast } from "@/hooks/use-toast";
 const Register = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const validatePhone = (phoneNumber: string) => {
+    // Indian phone numbers are 10 digits, often starting with 6, 7, 8, or 9
+    const regex = /^[6-9]\d{9}$/;
+    return regex.test(phoneNumber);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +31,15 @@ const Register = () => {
       toast({
         title: "Passwords don't match",
         description: "Please make sure your passwords match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validatePhone(phone)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid 10-digit Indian mobile number",
         variant: "destructive",
       });
       return;
@@ -73,7 +89,7 @@ const Register = () => {
                 <Input
                   id="fullName"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Rahul Sharma"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -84,11 +100,24 @@ const Register = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="email@example.com"
+                  placeholder="rahul.sharma@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Mobile Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="9876543210"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  maxLength={10}
+                />
+                <p className="text-xs text-gray-500">Enter 10-digit mobile number without country code</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
