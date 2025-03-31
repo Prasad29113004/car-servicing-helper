@@ -64,14 +64,17 @@ const Register = () => {
       };
       localStorage.setItem(`credentials_${email}`, JSON.stringify(userCredentials));
       
-      // Store user information
+      // Store user information - now with empty arrays for important collections
       const userData = {
         id: userId,
         fullName,
         email,
         phone,
         address: "", // Adding empty address field that user can update later
-        vehicles: [] // Initialize empty vehicles array
+        vehicles: [], // Initialize empty vehicles array
+        upcomingServices: [], // Initialize empty upcoming services array
+        serviceHistory: [], // Initialize empty service history array
+        notifications: [] // Initialize empty notifications array
       };
       
       // Save under user specific key

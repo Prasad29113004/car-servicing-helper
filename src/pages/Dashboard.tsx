@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,8 @@ interface UserData {
   phone: string;
   address: string;
   vehicles?: Vehicle[];
+  upcomingServices?: AppointmentData[];
+  serviceHistory?: ServiceData[];
 }
 
 interface Vehicle {
@@ -29,24 +32,28 @@ interface Vehicle {
   licensePlate: string;
 }
 
-// Mock data for service history
-const serviceHistory = [
-  { id: 1, date: "2023-06-15", service: "Oil Change", status: "Completed", amount: "₹3,499" },
-  { id: 2, date: "2023-04-02", service: "Brake Replacement", status: "Completed", amount: "₹8,950" },
-  { id: 3, date: "2023-02-18", service: "Tire Rotation", status: "Completed", amount: "₹1,599" }
-];
+interface ServiceData {
+  id: number;
+  date: string;
+  service: string;
+  status: string;
+  amount: string;
+}
 
-// Mock data for upcoming services
-const upcomingServices = [
-  { id: 1, date: "2023-09-20", service: "General Service", status: "Scheduled", amount: "₹5,999" }
-];
+interface AppointmentData {
+  id: number;
+  date: string;
+  service: string;
+  status: string;
+  amount: string;
+}
 
-// Mock data for notifications
-const notifications = [
-  { id: 1, message: "Your car is due for service in 3 days", date: "2023-09-17", read: false },
-  { id: 2, message: "Your recent service invoice is available", date: "2023-09-15", read: true },
-  { id: 3, message: "Special discount on AC service this month", date: "2023-09-10", read: true }
-];
+interface NotificationData {
+  id: number;
+  message: string;
+  date: string;
+  read: boolean;
+}
 
 // Popular Indian car makes
 const carMakes = [
@@ -62,7 +69,9 @@ const Dashboard = () => {
     email: "",
     phone: "",
     address: "",
-    vehicles: []
+    vehicles: [],
+    upcomingServices: [],
+    serviceHistory: []
   });
   const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false);
   const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, "id">>({
@@ -81,6 +90,7 @@ const Dashboard = () => {
   });
   const [isImageUploadOpen, setIsImageUploadOpen] = useState(false);
   const [serviceImages, setServiceImages] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -109,8 +119,31 @@ const Dashboard = () => {
     const storedUserData = localStorage.getItem(`userData_${currentUserId}`);
     if (storedUserData) {
       const parsedData = JSON.parse(storedUserData);
+      // Ensure we have empty arrays for vehicles, upcomingServices, and serviceHistory
+      parsedData.vehicles = parsedData.vehicles || [];
+      parsedData.upcomingServices = parsedData.upcomingServices || [];
+      parsedData.serviceHistory = parsedData.serviceHistory || [];
+      
       setUserData(parsedData);
       setUpdatedUserData(parsedData);
+      
+      // Initialize notifications - only for new users with no existing notifications
+      if (!parsedData.notifications || parsedData.notifications.length === 0) {
+        // Only create welcome notification for new users
+        if (parsedData.vehicles && parsedData.vehicles.length > 0) {
+          const welcomeNotification = {
+            id: 1,
+            message: `Your ${parsedData.vehicles[0].make} ${parsedData.vehicles[0].model} has been registered successfully`,
+            date: new Date().toISOString().split('T')[0],
+            read: false
+          };
+          setNotifications([welcomeNotification]);
+        } else {
+          setNotifications([]);
+        }
+      } else {
+        setNotifications(parsedData.notifications);
+      }
     } else {
       toast({
         title: "Error loading profile",
@@ -122,6 +155,21 @@ const Dashboard = () => {
   
   // Mark notification as read
   const markAsRead = (id: number) => {
+    const updatedNotifications = notifications.map(notif => 
+      notif.id === id ? { ...notif, read: true } : notif
+    );
+    setNotifications(updatedNotifications);
+    
+    // Update in user data
+    const updatedUserData = { ...userData, notifications: updatedNotifications };
+    
+    // Get current user ID
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (currentUserId) {
+      localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+    }
+    
     toast({
       title: "Notification marked as read",
       description: "The notification has been marked as read"
@@ -139,6 +187,19 @@ const Dashboard = () => {
     };
     
     updatedUserData.vehicles = [...vehicles, newVehicleWithId];
+    
+    // Add a welcome notification for the first vehicle
+    if (vehicles.length === 0) {
+      const vehicleNotification = {
+        id: notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1,
+        message: `Your ${newVehicle.make} ${newVehicle.model} has been registered successfully`,
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      };
+      
+      updatedUserData.notifications = [...(notifications || []), vehicleNotification];
+      setNotifications([...notifications, vehicleNotification]);
+    }
     
     // Get current user ID
     const currentUserId = localStorage.getItem("currentUserId");
@@ -210,6 +271,16 @@ const Dashboard = () => {
     });
   };
 
+  // Helper function to check if a user has upcoming services
+  const hasUpcomingServices = () => {
+    return userData.upcomingServices && userData.upcomingServices.length > 0;
+  };
+
+  // Helper function to check if a user has service history
+  const hasServiceHistory = () => {
+    return userData.serviceHistory && userData.serviceHistory.length > 0;
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -246,23 +317,28 @@ const Dashboard = () => {
                     <CardTitle className="text-lg">Upcoming Service</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {upcomingServices.length > 0 ? (
+                    {hasUpcomingServices() ? (
                       <div>
-                        <p className="font-medium">{upcomingServices[0].service}</p>
+                        <p className="font-medium">{userData.upcomingServices![0].service}</p>
                         <p className="text-sm text-gray-500">
-                          {new Date(upcomingServices[0].date).toLocaleDateString("en-IN", {
+                          {new Date(userData.upcomingServices![0].date).toLocaleDateString("en-IN", {
                             year: "numeric",
                             month: "long",
                             day: "numeric"
                           })}
                         </p>
-                        <p className="mt-2 font-semibold text-carservice-blue">{upcomingServices[0].amount}</p>
+                        <p className="mt-2 font-semibold text-carservice-blue">{userData.upcomingServices![0].amount}</p>
                         <Button variant="outline" size="sm" className="mt-4">
                           Reschedule
                         </Button>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">No upcoming services</p>
+                      <div className="flex flex-col items-center justify-center py-6">
+                        <p className="text-sm text-gray-500 mb-4">No upcoming services</p>
+                        <Button variant="outline" size="sm">
+                          Book a Service
+                        </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -324,12 +400,11 @@ const Dashboard = () => {
                         </p>
                       </div>
                     ) : (
-                      <div>
-                        <p className="text-sm text-gray-500">No service progress images yet</p>
+                      <div className="flex flex-col items-center justify-center py-6">
+                        <p className="text-sm text-gray-500 mb-4">No service progress images yet</p>
                         <Button 
                           variant="outline" 
-                          size="sm" 
-                          className="mt-4"
+                          size="sm"
                           onClick={() => setIsImageUploadOpen(true)}
                         >
                           View Demo Images
@@ -340,52 +415,65 @@ const Dashboard = () => {
                 </Card>
               </div>
 
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle>Service History</CardTitle>
-                  <CardDescription>Your past service records</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium">Date</th>
-                          <th className="text-left py-3 px-4 font-medium">Service</th>
-                          <th className="text-left py-3 px-4 font-medium">Status</th>
-                          <th className="text-left py-3 px-4 font-medium">Amount</th>
-                          <th className="text-left py-3 px-4 font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {serviceHistory.map((service) => (
-                          <tr key={service.id} className="border-b">
-                            <td className="py-3 px-4">
-                              {new Date(service.date).toLocaleDateString("en-IN", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric"
-                              })}
-                            </td>
-                            <td className="py-3 px-4">{service.service}</td>
-                            <td className="py-3 px-4">
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                                {service.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">{service.amount}</td>
-                            <td className="py-3 px-4">
-                              <Button variant="ghost" size="sm">
-                                View
-                              </Button>
-                            </td>
+              {hasServiceHistory() ? (
+                <Card className="shadow-md">
+                  <CardHeader>
+                    <CardTitle>Service History</CardTitle>
+                    <CardDescription>Your past service records</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-4 font-medium">Date</th>
+                            <th className="text-left py-3 px-4 font-medium">Service</th>
+                            <th className="text-left py-3 px-4 font-medium">Status</th>
+                            <th className="text-left py-3 px-4 font-medium">Amount</th>
+                            <th className="text-left py-3 px-4 font-medium">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+                        </thead>
+                        <tbody>
+                          {userData.serviceHistory!.map((service) => (
+                            <tr key={service.id} className="border-b">
+                              <td className="py-3 px-4">
+                                {new Date(service.date).toLocaleDateString("en-IN", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric"
+                                })}
+                              </td>
+                              <td className="py-3 px-4">{service.service}</td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                  {service.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">{service.amount}</td>
+                              <td className="py-3 px-4">
+                                <Button variant="ghost" size="sm">
+                                  View
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="shadow-md">
+                  <CardHeader>
+                    <CardTitle>Service History</CardTitle>
+                    <CardDescription>You don't have any service records yet</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center justify-center py-6">
+                    <p className="text-gray-500 mb-4">Book your first service to start building your service history</p>
+                    <Button variant="outline">Book a Service</Button>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="vehicles" className="space-y-6">
@@ -438,9 +526,9 @@ const Dashboard = () => {
                   <CardDescription>Your scheduled car services</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {upcomingServices.length > 0 ? (
+                  {hasUpcomingServices() ? (
                     <div className="space-y-4">
-                      {upcomingServices.map((service) => (
+                      {userData.upcomingServices!.map((service) => (
                         <div key={service.id} className="p-4 border rounded-lg">
                           <div className="flex justify-between items-center">
                             <div>
@@ -468,60 +556,72 @@ const Dashboard = () => {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-gray-500">No upcoming appointments</p>
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <p className="text-gray-500 mb-4">No upcoming appointments</p>
+                      <Button variant="outline">Book a Service</Button>
+                    </div>
                   )}
-                  <Button className="mt-6">
-                    Book New Appointment
-                  </Button>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle>Past Appointments</CardTitle>
-                  <CardDescription>Your service history</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-4 font-medium">Date</th>
-                          <th className="text-left py-3 px-4 font-medium">Service</th>
-                          <th className="text-left py-3 px-4 font-medium">Status</th>
-                          <th className="text-left py-3 px-4 font-medium">Amount</th>
-                          <th className="text-left py-3 px-4 font-medium">Invoice</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {serviceHistory.map((service) => (
-                          <tr key={service.id} className="border-b">
-                            <td className="py-3 px-4">
-                              {new Date(service.date).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric"
-                              })}
-                            </td>
-                            <td className="py-3 px-4">{service.service}</td>
-                            <td className="py-3 px-4">
-                              <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-                                {service.status}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4">{service.amount}</td>
-                            <td className="py-3 px-4">
-                              <Button variant="ghost" size="sm">
-                                <FileText className="h-4 w-4 mr-2" /> Download
-                              </Button>
-                            </td>
+              {hasServiceHistory() ? (
+                <Card className="shadow-md">
+                  <CardHeader>
+                    <CardTitle>Past Appointments</CardTitle>
+                    <CardDescription>Your service history</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-3 px-4 font-medium">Date</th>
+                            <th className="text-left py-3 px-4 font-medium">Service</th>
+                            <th className="text-left py-3 px-4 font-medium">Status</th>
+                            <th className="text-left py-3 px-4 font-medium">Amount</th>
+                            <th className="text-left py-3 px-4 font-medium">Invoice</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+                        </thead>
+                        <tbody>
+                          {userData.serviceHistory!.map((service) => (
+                            <tr key={service.id} className="border-b">
+                              <td className="py-3 px-4">
+                                {new Date(service.date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric"
+                                })}
+                              </td>
+                              <td className="py-3 px-4">{service.service}</td>
+                              <td className="py-3 px-4">
+                                <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                                  {service.status}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">{service.amount}</td>
+                              <td className="py-3 px-4">
+                                <Button variant="ghost" size="sm">
+                                  <FileText className="h-4 w-4 mr-2" /> Download
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="shadow-md">
+                  <CardHeader>
+                    <CardTitle>Past Appointments</CardTitle>
+                    <CardDescription>You don't have any service history yet</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center justify-center py-6">
+                    <p className="text-gray-500">Your completed services will appear here</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="notifications" className="space-y-6">
@@ -531,38 +631,44 @@ const Dashboard = () => {
                   <CardDescription>Your service alerts and updates</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {notifications.map((notification) => (
-                      <div 
-                        key={notification.id} 
-                        className={`p-4 border rounded-lg ${notification.read ? 'bg-white' : 'bg-blue-50'}`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className={`${notification.read ? 'font-normal' : 'font-semibold'}`}>
-                              {notification.message}
-                            </p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              {new Date(notification.date).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric"
-                              })}
-                            </p>
+                  {notifications && notifications.length > 0 ? (
+                    <div className="space-y-4">
+                      {notifications.map((notification) => (
+                        <div 
+                          key={notification.id} 
+                          className={`p-4 border rounded-lg ${notification.read ? 'bg-white' : 'bg-blue-50'}`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className={`${notification.read ? 'font-normal' : 'font-semibold'}`}>
+                                {notification.message}
+                              </p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {new Date(notification.date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric"
+                                })}
+                              </p>
+                            </div>
+                            {!notification.read && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => markAsRead(notification.id)}
+                              >
+                                Mark as read
+                              </Button>
+                            )}
                           </div>
-                          {!notification.read && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => markAsRead(notification.id)}
-                            >
-                              Mark as read
-                            </Button>
-                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <p className="text-gray-500">No notifications yet</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -791,3 +897,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
