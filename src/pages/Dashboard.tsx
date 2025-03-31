@@ -1,10 +1,9 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Calendar, CarFront, FileText, Settings, User, Upload } from "lucide-react";
+import { Bell, Calendar, CarFront, FileText, Settings, User, Upload, Image } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +21,8 @@ interface UserData {
   vehicles?: Vehicle[];
   upcomingServices?: AppointmentData[];
   serviceHistory?: ServiceData[];
-  notifications?: NotificationData[]; // Added the notifications property to the interface
+  notifications?: NotificationData[];
+  serviceImages?: ServiceImage[];
 }
 
 interface Vehicle {
@@ -56,7 +56,11 @@ interface NotificationData {
   read: boolean;
 }
 
-// Popular Indian car makes
+interface ServiceImage {
+  url: string;
+  title: string;
+}
+
 const carMakes = [
   "Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Honda", "Toyota", 
   "Kia", "MG", "Renault", "Ford", "Volkswagen", "Skoda"
@@ -72,7 +76,9 @@ const Dashboard = () => {
     address: "",
     vehicles: [],
     upcomingServices: [],
-    serviceHistory: []
+    serviceHistory: [],
+    notifications: [],
+    serviceImages: []
   });
   const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false);
   const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, "id">>({
@@ -90,13 +96,13 @@ const Dashboard = () => {
     address: ""
   });
   const [isImageUploadOpen, setIsImageUploadOpen] = useState(false);
-  const [serviceImages, setServiceImages] = useState<string[]>([]);
+  const [isViewImageOpen, setIsViewImageOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<ServiceImage | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check if user is logged in and load user data
   useEffect(() => {
     const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
     if (!isLoggedIn) {
@@ -104,7 +110,6 @@ const Dashboard = () => {
       return;
     }
     
-    // Get current user ID
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) {
       toast({
@@ -116,35 +121,19 @@ const Dashboard = () => {
       return;
     }
     
-    // Load user data from localStorage with user-specific key
     const storedUserData = localStorage.getItem(`userData_${currentUserId}`);
     if (storedUserData) {
       const parsedData = JSON.parse(storedUserData);
-      // Ensure we have empty arrays for vehicles, upcomingServices, and serviceHistory
       parsedData.vehicles = parsedData.vehicles || [];
       parsedData.upcomingServices = parsedData.upcomingServices || [];
       parsedData.serviceHistory = parsedData.serviceHistory || [];
+      parsedData.notifications = parsedData.notifications || [];
+      parsedData.serviceImages = parsedData.serviceImages || [];
       
       setUserData(parsedData);
       setUpdatedUserData(parsedData);
       
-      // Initialize notifications - only for new users with no existing notifications
-      if (!parsedData.notifications || parsedData.notifications.length === 0) {
-        // Only create welcome notification for new users
-        if (parsedData.vehicles && parsedData.vehicles.length > 0) {
-          const welcomeNotification = {
-            id: 1,
-            message: `Your ${parsedData.vehicles[0].make} ${parsedData.vehicles[0].model} has been registered successfully`,
-            date: new Date().toISOString().split('T')[0],
-            read: false
-          };
-          setNotifications([welcomeNotification]);
-        } else {
-          setNotifications([]);
-        }
-      } else {
-        setNotifications(parsedData.notifications);
-      }
+      setNotifications(parsedData.notifications || []);
     } else {
       toast({
         title: "Error loading profile",
@@ -154,17 +143,14 @@ const Dashboard = () => {
     }
   }, [navigate, toast]);
   
-  // Mark notification as read
   const markAsRead = (id: number) => {
     const updatedNotifications = notifications.map(notif => 
       notif.id === id ? { ...notif, read: true } : notif
     );
     setNotifications(updatedNotifications);
     
-    // Update in user data
     const updatedUserData = { ...userData, notifications: updatedNotifications };
     
-    // Get current user ID
     const currentUserId = localStorage.getItem("currentUserId");
     if (currentUserId) {
       localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
@@ -177,7 +163,6 @@ const Dashboard = () => {
     });
   };
 
-  // Add a new vehicle
   const handleAddVehicle = () => {
     const updatedUserData = { ...userData };
     const vehicles = updatedUserData.vehicles || [];
@@ -189,7 +174,6 @@ const Dashboard = () => {
     
     updatedUserData.vehicles = [...vehicles, newVehicleWithId];
     
-    // Add a welcome notification for the first vehicle
     if (vehicles.length === 0) {
       const vehicleNotification = {
         id: notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1,
@@ -202,7 +186,6 @@ const Dashboard = () => {
       setNotifications([...notifications, vehicleNotification]);
     }
     
-    // Get current user ID
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) {
       toast({
@@ -213,11 +196,9 @@ const Dashboard = () => {
       return;
     }
     
-    // Save to localStorage with user-specific key
     localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
     setUserData(updatedUserData);
     
-    // Reset form and close dialog
     setNewVehicle({
       make: "",
       model: "",
@@ -232,9 +213,7 @@ const Dashboard = () => {
     });
   };
 
-  // Update user profile
   const handleUpdateProfile = () => {
-    // Get current user ID
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) {
       toast({
@@ -245,7 +224,6 @@ const Dashboard = () => {
       return;
     }
     
-    // Save to localStorage with user-specific key
     localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
     setUserData(updatedUserData);
     setIsUpdateProfileOpen(false);
@@ -256,14 +234,33 @@ const Dashboard = () => {
     });
   };
 
-  // Handle image upload simulation
   const handleImageUpload = () => {
     const mockImages = [
-      "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60",
-      "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=500&auto=format&fit=crop&q=60"
+      { url: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60", title: "Engine Service" },
+      { url: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=500&auto=format&fit=crop&q=60", title: "Brake Inspection" }
     ];
     
-    setServiceImages(mockImages);
+    const updatedUserData = { ...userData, serviceImages: mockImages };
+    
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (currentUserId) {
+      localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+      
+      const newNotification = {
+        id: (notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1),
+        message: "Service progress images have been shared with you",
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      };
+      
+      const updatedNotifications = [...notifications, newNotification];
+      setNotifications(updatedNotifications);
+      
+      updatedUserData.notifications = updatedNotifications;
+      localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
+    }
+    
     setIsImageUploadOpen(false);
     
     toast({
@@ -272,14 +269,21 @@ const Dashboard = () => {
     });
   };
 
-  // Helper function to check if a user has upcoming services
+  const viewImage = (image: ServiceImage) => {
+    setSelectedImage(image);
+    setIsViewImageOpen(true);
+  };
+
   const hasUpcomingServices = () => {
     return userData.upcomingServices && userData.upcomingServices.length > 0;
   };
 
-  // Helper function to check if a user has service history
   const hasServiceHistory = () => {
     return userData.serviceHistory && userData.serviceHistory.length > 0;
+  };
+
+  const hasServiceImages = () => {
+    return userData.serviceImages && userData.serviceImages.length > 0;
   };
 
   return (
@@ -384,21 +388,39 @@ const Dashboard = () => {
                     <CardTitle className="text-lg">Service Progress</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {serviceImages.length > 0 ? (
+                    {hasServiceImages() ? (
                       <div>
                         <div className="grid grid-cols-2 gap-2">
-                          {serviceImages.map((img, index) => (
-                            <img 
+                          {userData.serviceImages!.slice(0, 2).map((img, index) => (
+                            <div 
                               key={index} 
-                              src={img} 
-                              alt={`Service progress ${index + 1}`} 
-                              className="rounded-md w-full h-24 object-cover"
-                            />
+                              className="relative cursor-pointer" 
+                              onClick={() => viewImage(img)}
+                            >
+                              <img 
+                                src={img.url} 
+                                alt={img.title} 
+                                className="rounded-md w-full h-24 object-cover"
+                              />
+                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-1 rounded-b-md">
+                                <p className="text-xs text-white truncate">{img.title}</p>
+                              </div>
+                            </div>
                           ))}
                         </div>
                         <p className="mt-2 text-sm text-gray-500">
                           Latest service progress photos
                         </p>
+                        {userData.serviceImages!.length > 2 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="mt-2 w-full text-carservice-blue"
+                            onClick={() => setActiveTab("images")}
+                          >
+                            View all {userData.serviceImages!.length} images
+                          </Button>
+                        )}
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center py-6">
@@ -722,6 +744,51 @@ const Dashboard = () => {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="service-images" className="space-y-6">
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle>Service Progress Images</CardTitle>
+                  <CardDescription>View progress photos of your vehicle service</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {hasServiceImages() ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {userData.serviceImages!.map((image, index) => (
+                        <div 
+                          key={index} 
+                          className="border rounded-lg overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                          onClick={() => viewImage(image)}
+                        >
+                          <img 
+                            src={image.url} 
+                            alt={image.title} 
+                            className="w-full h-40 object-cover"
+                          />
+                          <div className="p-3 bg-gray-50">
+                            <h4 className="font-medium">{image.title}</h4>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <Image className="h-16 w-16 text-gray-300 mb-4" />
+                      <p className="text-gray-500 mb-2">No service images available yet</p>
+                      <p className="text-sm text-gray-400 mb-6 text-center max-w-md">
+                        Service progress images will be uploaded by our technicians during your vehicle service
+                      </p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setIsImageUploadOpen(true)}
+                      >
+                        View Demo Images
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </main>
@@ -892,10 +959,29 @@ const Dashboard = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={isViewImageOpen} onOpenChange={setIsViewImageOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{selectedImage?.title || "Service Image"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 flex justify-center">
+            {selectedImage && (
+              <img 
+                src={selectedImage.url} 
+                alt={selectedImage.title} 
+                className="max-h-[400px] object-contain rounded-md"
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsViewImageOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );
 };
 
 export default Dashboard;
-
