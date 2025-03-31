@@ -22,6 +22,7 @@ interface UserData {
   vehicles?: Vehicle[];
   upcomingServices?: AppointmentData[];
   serviceHistory?: ServiceData[];
+  notifications?: NotificationData[]; // Added the notifications property to the interface
 }
 
 interface Vehicle {
