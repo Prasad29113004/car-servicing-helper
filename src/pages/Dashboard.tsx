@@ -1,36 +1,43 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Calendar, CarFront, FileText, Settings, User } from "lucide-react";
+import { Bell, Calendar, CarFront, FileText, Settings, User, Upload } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UserData {
   fullName: string;
   email: string;
   phone: string;
   address: string;
+  vehicles?: Vehicle[];
 }
 
-// Mock data for vehicles
-const userVehicles = [
-  { id: 1, make: "Toyota", model: "Camry", year: 2018, licensePlate: "ABC123" },
-  { id: 2, make: "Honda", model: "Civic", year: 2020, licensePlate: "XYZ789" }
-];
+interface Vehicle {
+  id: number;
+  make: string;
+  model: string;
+  year: number;
+  licensePlate: string;
+}
 
 // Mock data for service history
 const serviceHistory = [
-  { id: 1, date: "2023-06-15", service: "Oil Change", status: "Completed", amount: "$45.99" },
-  { id: 2, date: "2023-04-02", service: "Brake Replacement", status: "Completed", amount: "$220.50" },
-  { id: 3, date: "2023-02-18", service: "Tire Rotation", status: "Completed", amount: "$35.00" }
+  { id: 1, date: "2023-06-15", service: "Oil Change", status: "Completed", amount: "₹3,499" },
+  { id: 2, date: "2023-04-02", service: "Brake Replacement", status: "Completed", amount: "₹8,950" },
+  { id: 3, date: "2023-02-18", service: "Tire Rotation", status: "Completed", amount: "₹1,599" }
 ];
 
 // Mock data for upcoming services
 const upcomingServices = [
-  { id: 1, date: "2023-09-20", service: "General Service", status: "Scheduled", amount: "$150.00" }
+  { id: 1, date: "2023-09-20", service: "General Service", status: "Scheduled", amount: "₹5,999" }
 ];
 
 // Mock data for notifications
@@ -40,14 +47,38 @@ const notifications = [
   { id: 3, message: "Special discount on AC service this month", date: "2023-09-10", read: true }
 ];
 
+// Popular Indian car makes
+const carMakes = [
+  "Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Honda", "Toyota", 
+  "Kia", "MG", "Renault", "Ford", "Volkswagen", "Skoda"
+];
+
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [userData, setUserData] = useState<UserData>({
     fullName: "",
     email: "",
     phone: "",
+    address: "",
+    vehicles: []
+  });
+  const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false);
+  const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, "id">>({
+    make: "",
+    model: "",
+    year: new Date().getFullYear(),
+    licensePlate: ""
+  });
+  const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
+  const [updatedUserData, setUpdatedUserData] = useState<UserData>({
+    fullName: "",
+    email: "",
+    phone: "",
     address: ""
   });
+  const [isImageUploadOpen, setIsImageUploadOpen] = useState(false);
+  const [serviceImages, setServiceImages] = useState<string[]>([]);
+  
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -62,7 +93,9 @@ const Dashboard = () => {
     // Load user data from localStorage
     const storedUserData = localStorage.getItem("userData");
     if (storedUserData) {
-      setUserData(JSON.parse(storedUserData));
+      const parsedData = JSON.parse(storedUserData);
+      setUserData(parsedData);
+      setUpdatedUserData(parsedData);
     }
   }, [navigate]);
   
@@ -74,6 +107,66 @@ const Dashboard = () => {
     });
   };
 
+  // Add a new vehicle
+  const handleAddVehicle = () => {
+    const updatedUserData = { ...userData };
+    const vehicles = updatedUserData.vehicles || [];
+    
+    const newVehicleWithId = {
+      ...newVehicle,
+      id: vehicles.length > 0 ? Math.max(...vehicles.map(v => v.id)) + 1 : 1
+    };
+    
+    updatedUserData.vehicles = [...vehicles, newVehicleWithId];
+    
+    // Save to localStorage
+    localStorage.setItem("userData", JSON.stringify(updatedUserData));
+    setUserData(updatedUserData);
+    
+    // Reset form and close dialog
+    setNewVehicle({
+      make: "",
+      model: "",
+      year: new Date().getFullYear(),
+      licensePlate: ""
+    });
+    setIsAddVehicleDialogOpen(false);
+    
+    toast({
+      title: "Vehicle added",
+      description: `Your ${newVehicle.make} ${newVehicle.model} has been added to your profile`
+    });
+  };
+
+  // Update user profile
+  const handleUpdateProfile = () => {
+    // Save to localStorage
+    localStorage.setItem("userData", JSON.stringify(updatedUserData));
+    setUserData(updatedUserData);
+    setIsUpdateProfileOpen(false);
+    
+    toast({
+      title: "Profile updated",
+      description: "Your profile information has been updated"
+    });
+  };
+
+  // Handle image upload simulation
+  const handleImageUpload = () => {
+    const mockImages = [
+      "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60",
+      "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=500&auto=format&fit=crop&q=60"
+    ];
+    
+    setServiceImages(mockImages);
+    setIsImageUploadOpen(false);
+    
+    toast({
+      title: "Images uploaded",
+      description: "Service progress images have been shared with you"
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -81,7 +174,7 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-carservice-dark">Dashboard</h1>
-            <p className="text-gray-500">Welcome back, User</p>
+            <p className="text-gray-500">Welcome back, {userData.fullName}</p>
           </div>
 
           <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -114,7 +207,7 @@ const Dashboard = () => {
                       <div>
                         <p className="font-medium">{upcomingServices[0].service}</p>
                         <p className="text-sm text-gray-500">
-                          {new Date(upcomingServices[0].date).toLocaleDateString("en-US", {
+                          {new Date(upcomingServices[0].date).toLocaleDateString("en-IN", {
                             year: "numeric",
                             month: "long",
                             day: "numeric"
@@ -137,21 +230,30 @@ const Dashboard = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {userVehicles.map((vehicle) => (
-                        <div key={vehicle.id} className="flex justify-between">
-                          <div>
-                            <p className="font-medium">
-                              {vehicle.year} {vehicle.make} {vehicle.model}
-                            </p>
-                            <p className="text-sm text-gray-500">{vehicle.licensePlate}</p>
+                      {userData.vehicles && userData.vehicles.length > 0 ? (
+                        userData.vehicles.map((vehicle) => (
+                          <div key={vehicle.id} className="flex justify-between">
+                            <div>
+                              <p className="font-medium">
+                                {vehicle.year} {vehicle.make} {vehicle.model}
+                              </p>
+                              <p className="text-sm text-gray-500">{vehicle.licensePlate}</p>
+                            </div>
+                            <Button variant="ghost" size="icon">
+                              <Settings className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button variant="ghost" size="icon">
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No vehicles added yet</p>
+                      )}
                     </div>
-                    <Button variant="outline" size="sm" className="mt-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-4"
+                      onClick={() => setIsAddVehicleDialogOpen(true)}
+                    >
                       Add Vehicle
                     </Button>
                   </CardContent>
@@ -159,26 +261,37 @@ const Dashboard = () => {
 
                 <Card className="shadow-md">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Recent Service</CardTitle>
+                    <CardTitle className="text-lg">Service Progress</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {serviceHistory.length > 0 ? (
+                    {serviceImages.length > 0 ? (
                       <div>
-                        <p className="font-medium">{serviceHistory[0].service}</p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(serviceHistory[0].date).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric"
-                          })}
+                        <div className="grid grid-cols-2 gap-2">
+                          {serviceImages.map((img, index) => (
+                            <img 
+                              key={index} 
+                              src={img} 
+                              alt={`Service progress ${index + 1}`} 
+                              className="rounded-md w-full h-24 object-cover"
+                            />
+                          ))}
+                        </div>
+                        <p className="mt-2 text-sm text-gray-500">
+                          Latest service progress photos
                         </p>
-                        <p className="mt-2 font-semibold text-carservice-blue">{serviceHistory[0].amount}</p>
-                        <Button variant="outline" size="sm" className="mt-4">
-                          View Invoice
-                        </Button>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-500">No service history</p>
+                      <div>
+                        <p className="text-sm text-gray-500">No service progress images yet</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-4"
+                          onClick={() => setIsImageUploadOpen(true)}
+                        >
+                          View Demo Images
+                        </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -205,7 +318,7 @@ const Dashboard = () => {
                         {serviceHistory.map((service) => (
                           <tr key={service.id} className="border-b">
                             <td className="py-3 px-4">
-                              {new Date(service.date).toLocaleDateString("en-US", {
+                              {new Date(service.date).toLocaleDateString("en-IN", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric"
@@ -240,28 +353,35 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    {userVehicles.map((vehicle) => (
-                      <div key={vehicle.id} className="p-4 border rounded-lg">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h3 className="text-lg font-semibold">
-                              {vehicle.year} {vehicle.make} {vehicle.model}
-                            </h3>
-                            <p className="text-sm text-gray-500">License Plate: {vehicle.licensePlate}</p>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button variant="outline" size="sm">
-                              Edit
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              Service History
-                            </Button>
+                    {userData.vehicles && userData.vehicles.length > 0 ? (
+                      userData.vehicles.map((vehicle) => (
+                        <div key={vehicle.id} className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h3 className="text-lg font-semibold">
+                                {vehicle.year} {vehicle.make} {vehicle.model}
+                              </h3>
+                              <p className="text-sm text-gray-500">License Plate: {vehicle.licensePlate}</p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button variant="outline" size="sm">
+                                Edit
+                              </Button>
+                              <Button variant="outline" size="sm">
+                                Service History
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No vehicles added yet. Add your first vehicle!</p>
+                    )}
                   </div>
-                  <Button className="mt-6">
+                  <Button 
+                    className="mt-6"
+                    onClick={() => setIsAddVehicleDialogOpen(true)}
+                  >
                     Add New Vehicle
                   </Button>
                 </CardContent>
@@ -430,7 +550,10 @@ const Dashboard = () => {
                         <p className="mt-1">{userData.address || "Not provided"}</p>
                       </div>
                     </div>
-                    <Button variant="outline">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsUpdateProfileOpen(true)}
+                    >
                       Edit Information
                     </Button>
                   </div>
@@ -452,6 +575,173 @@ const Dashboard = () => {
           </Tabs>
         </div>
       </main>
+
+      <Dialog open={isAddVehicleDialogOpen} onOpenChange={setIsAddVehicleDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Vehicle</DialogTitle>
+            <DialogDescription>
+              Add your vehicle details to manage services
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="make" className="text-right">
+                Make
+              </Label>
+              <div className="col-span-3">
+                <Select 
+                  onValueChange={(value) => setNewVehicle({...newVehicle, make: value})}
+                  value={newVehicle.make}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select car make" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {carMakes.map((make) => (
+                      <SelectItem key={make} value={make}>{make}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="model" className="text-right">
+                Model
+              </Label>
+              <Input
+                id="model"
+                value={newVehicle.model}
+                onChange={(e) => setNewVehicle({...newVehicle, model: e.target.value})}
+                className="col-span-3"
+                placeholder="e.g. Swift, i20, Nexon"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="year" className="text-right">
+                Year
+              </Label>
+              <Input
+                id="year"
+                type="number"
+                value={newVehicle.year}
+                onChange={(e) => setNewVehicle({...newVehicle, year: parseInt(e.target.value)})}
+                className="col-span-3"
+                min={1990}
+                max={new Date().getFullYear()}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="licensePlate" className="text-right">
+                License Plate
+              </Label>
+              <Input
+                id="licensePlate"
+                value={newVehicle.licensePlate}
+                onChange={(e) => setNewVehicle({...newVehicle, licensePlate: e.target.value})}
+                className="col-span-3"
+                placeholder="e.g. KA01AB1234"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddVehicleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddVehicle}>Add Vehicle</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpdateProfileOpen} onOpenChange={setIsUpdateProfileOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Update Profile</DialogTitle>
+            <DialogDescription>
+              Update your personal information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="fullName" className="text-right">
+                Full Name
+              </Label>
+              <Input
+                id="fullName"
+                value={updatedUserData.fullName}
+                onChange={(e) => setUpdatedUserData({...updatedUserData, fullName: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={updatedUserData.email}
+                onChange={(e) => setUpdatedUserData({...updatedUserData, email: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phone" className="text-right">
+                Phone
+              </Label>
+              <Input
+                id="phone"
+                value={updatedUserData.phone}
+                onChange={(e) => setUpdatedUserData({...updatedUserData, phone: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="address" className="text-right">
+                Address
+              </Label>
+              <Input
+                id="address"
+                value={updatedUserData.address}
+                onChange={(e) => setUpdatedUserData({...updatedUserData, address: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpdateProfileOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateProfile}>Update Profile</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isImageUploadOpen} onOpenChange={setIsImageUploadOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Service Progress Images</DialogTitle>
+            <DialogDescription>
+              View real-time updates from your mechanic
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex justify-center items-center h-40 border-2 border-dashed rounded-lg mb-4">
+              <div className="text-center">
+                <Upload className="mx-auto h-10 w-10 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-500">Demo images will be shown</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImageUploadOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleImageUpload}>View Demo Images</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Footer />
     </div>
   );

@@ -53,12 +53,16 @@ const Register = () => {
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userRole", "user");
       
+      // Clear any existing mock data first
+      localStorage.removeItem("userData");
+      
       // Store user information
       const userData = {
         fullName,
         email,
         phone,
-        address: "" // Adding empty address field that user can update later
+        address: "", // Adding empty address field that user can update later
+        vehicles: [] // Initialize empty vehicles array
       };
       localStorage.setItem("userData", JSON.stringify(userData));
       
