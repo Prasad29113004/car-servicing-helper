@@ -53,18 +53,29 @@ const Register = () => {
       localStorage.setItem("isLoggedIn", "true");
       localStorage.setItem("userRole", "user");
       
-      // Clear any existing mock data first
-      localStorage.removeItem("userData");
+      // Generate a unique user ID
+      const userId = "user_" + Date.now();
+      localStorage.setItem("currentUserId", userId);
+      
+      // Store user credentials for login
+      const userCredentials = {
+        email,
+        password
+      };
+      localStorage.setItem(`credentials_${email}`, JSON.stringify(userCredentials));
       
       // Store user information
       const userData = {
+        id: userId,
         fullName,
         email,
         phone,
         address: "", // Adding empty address field that user can update later
         vehicles: [] // Initialize empty vehicles array
       };
-      localStorage.setItem("userData", JSON.stringify(userData));
+      
+      // Save under user specific key
+      localStorage.setItem(`userData_${userId}`, JSON.stringify(userData));
       
       toast({
         title: "Registration successful",

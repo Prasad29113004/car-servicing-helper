@@ -24,27 +24,99 @@ const Login = () => {
     // Simulate API call
     setTimeout(() => {
       if (activeTab === "user") {
-        // User login
+        // User login - first check demo account
         if (email === "user@example.com" && password === "password") {
+          // Demo account login
           localStorage.setItem("isLoggedIn", "true");
           localStorage.setItem("userRole", "user");
+          
+          // Set demo user ID
+          const demoUserId = "demo_user";
+          localStorage.setItem("currentUserId", demoUserId);
+          
+          // Create demo user data if it doesn't exist
+          if (!localStorage.getItem(`userData_${demoUserId}`)) {
+            const demoUserData = {
+              id: demoUserId,
+              fullName: "Rahul Sharma",
+              email: "user@example.com",
+              phone: "9876543210",
+              address: "123 MG Road, Bangalore, Karnataka",
+              vehicles: [
+                { id: 1, make: "Maruti Suzuki", model: "Swift", year: 2020, licensePlate: "KA01AB1234" },
+                { id: 2, make: "Honda", model: "City", year: 2019, licensePlate: "KA02CD5678" }
+              ]
+            };
+            localStorage.setItem(`userData_${demoUserId}`, JSON.stringify(demoUserData));
+          }
+          
           toast({
             title: "Login successful",
             description: "Welcome back!",
           });
           navigate("/dashboard");
         } else {
-          toast({
-            title: "Login failed",
-            description: "Invalid email or password",
-            variant: "destructive",
-          });
+          // Check for registered user
+          const storedCredentials = localStorage.getItem(`credentials_${email}`);
+          
+          if (storedCredentials) {
+            const userCredentials = JSON.parse(storedCredentials);
+            
+            if (userCredentials.password === password) {
+              // Find user data by searching through localStorage
+              let userId = null;
+              
+              // Iterate through localStorage to find the user's data
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('userData_')) {
+                  const data = JSON.parse(localStorage.getItem(key) || '{}');
+                  if (data.email === email) {
+                    userId = data.id;
+                    break;
+                  }
+                }
+              }
+              
+              if (userId) {
+                localStorage.setItem("isLoggedIn", "true");
+                localStorage.setItem("userRole", "user");
+                localStorage.setItem("currentUserId", userId);
+                
+                toast({
+                  title: "Login successful",
+                  description: "Welcome back!",
+                });
+                navigate("/dashboard");
+              } else {
+                toast({
+                  title: "Login failed",
+                  description: "User data not found",
+                  variant: "destructive",
+                });
+              }
+            } else {
+              toast({
+                title: "Login failed",
+                description: "Invalid password",
+                variant: "destructive",
+              });
+            }
+          } else {
+            toast({
+              title: "Login failed",
+              description: "User not found",
+              variant: "destructive",
+            });
+          }
         }
       } else {
         // Admin login
         if (email === "admin@example.com" && password === "admin") {
           localStorage.setItem("isLoggedIn", "true");
           localStorage.setItem("userRole", "admin");
+          localStorage.setItem("currentUserId", "admin");
+          
           toast({
             title: "Admin Login successful",
             description: "Welcome back, Admin!",

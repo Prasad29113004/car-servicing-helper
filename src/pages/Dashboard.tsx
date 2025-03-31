@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UserData {
+  id: string;
   fullName: string;
   email: string;
   phone: string;
@@ -56,6 +57,7 @@ const carMakes = [
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [userData, setUserData] = useState<UserData>({
+    id: "",
     fullName: "",
     email: "",
     phone: "",
@@ -71,6 +73,7 @@ const Dashboard = () => {
   });
   const [isUpdateProfileOpen, setIsUpdateProfileOpen] = useState(false);
   const [updatedUserData, setUpdatedUserData] = useState<UserData>({
+    id: "",
     fullName: "",
     email: "",
     phone: "",
@@ -90,14 +93,32 @@ const Dashboard = () => {
       return;
     }
     
-    // Load user data from localStorage
-    const storedUserData = localStorage.getItem("userData");
+    // Get current user ID
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (!currentUserId) {
+      toast({
+        title: "Session error",
+        description: "Could not identify user session",
+        variant: "destructive"
+      });
+      navigate("/login");
+      return;
+    }
+    
+    // Load user data from localStorage with user-specific key
+    const storedUserData = localStorage.getItem(`userData_${currentUserId}`);
     if (storedUserData) {
       const parsedData = JSON.parse(storedUserData);
       setUserData(parsedData);
       setUpdatedUserData(parsedData);
+    } else {
+      toast({
+        title: "Error loading profile",
+        description: "Could not find your profile data",
+        variant: "destructive"
+      });
     }
-  }, [navigate]);
+  }, [navigate, toast]);
   
   // Mark notification as read
   const markAsRead = (id: number) => {
@@ -119,8 +140,19 @@ const Dashboard = () => {
     
     updatedUserData.vehicles = [...vehicles, newVehicleWithId];
     
-    // Save to localStorage
-    localStorage.setItem("userData", JSON.stringify(updatedUserData));
+    // Get current user ID
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (!currentUserId) {
+      toast({
+        title: "Session error",
+        description: "Could not identify user session",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Save to localStorage with user-specific key
+    localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
     setUserData(updatedUserData);
     
     // Reset form and close dialog
@@ -140,8 +172,19 @@ const Dashboard = () => {
 
   // Update user profile
   const handleUpdateProfile = () => {
-    // Save to localStorage
-    localStorage.setItem("userData", JSON.stringify(updatedUserData));
+    // Get current user ID
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (!currentUserId) {
+      toast({
+        title: "Session error",
+        description: "Could not identify user session",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Save to localStorage with user-specific key
+    localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
     setUserData(updatedUserData);
     setIsUpdateProfileOpen(false);
     
