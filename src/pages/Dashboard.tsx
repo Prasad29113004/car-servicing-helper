@@ -66,6 +66,11 @@ const carMakes = [
   "Kia", "MG", "Renault", "Ford", "Volkswagen", "Skoda"
 ];
 
+const serviceTypes = [
+  "Oil Change", "Brake Service", "Tire Rotation", "Engine Tune-Up",
+  "General Service", "Battery Replacement", "AC Service", "Wheel Alignment"
+];
+
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [userData, setUserData] = useState<UserData>({
@@ -99,6 +104,13 @@ const Dashboard = () => {
   const [isViewImageOpen, setIsViewImageOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ServiceImage | null>(null);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [isBookServiceOpen, setIsBookServiceOpen] = useState(false);
+  const [newService, setNewService] = useState({
+    vehicleId: "",
+    serviceType: "",
+    date: "",
+    time: "10:00"
+  });
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -269,6 +281,88 @@ const Dashboard = () => {
     });
   };
 
+  const handleBookService = () => {
+    if (!newService.vehicleId || !newService.serviceType || !newService.date) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const vehicle = userData.vehicles?.find(v => v.id.toString() === newService.vehicleId);
+    if (!vehicle) {
+      toast({
+        title: "Error",
+        description: "Vehicle not found",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const updatedUserData = { ...userData };
+    
+    // Generate a new unique ID for the service
+    const newId = updatedUserData.upcomingServices && updatedUserData.upcomingServices.length > 0
+      ? Math.max(...updatedUserData.upcomingServices.map(s => s.id)) + 1
+      : 1;
+    
+    // Create new appointment object
+    const newAppointment: AppointmentData = {
+      id: newId,
+      service: newService.serviceType,
+      date: newService.date,
+      status: "Pending",
+      amount: `₹${(Math.floor(Math.random() * 5000) + 1000).toFixed(2)}` // Random price for demo
+    };
+    
+    // Add to user's upcoming services
+    updatedUserData.upcomingServices = [
+      ...(updatedUserData.upcomingServices || []),
+      newAppointment
+    ];
+    
+    // Create notification
+    const newNotification = {
+      id: (notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1),
+      message: `Your ${newService.serviceType} appointment has been scheduled for ${new Date(newService.date).toLocaleDateString()}`,
+      date: new Date().toISOString().split('T')[0],
+      read: false
+    };
+    
+    updatedUserData.notifications = [
+      ...(updatedUserData.notifications || []),
+      newNotification
+    ];
+    
+    // Save to localStorage
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (currentUserId) {
+      localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+      setNotifications([...notifications, newNotification]);
+    }
+    
+    // Reset form and close dialog
+    setNewService({
+      vehicleId: "",
+      serviceType: "",
+      date: "",
+      time: "10:00"
+    });
+    
+    setIsBookServiceOpen(false);
+    
+    toast({
+      title: "Service booked",
+      description: `Your ${newService.serviceType} has been scheduled for ${new Date(newService.date).toLocaleDateString()}`
+    });
+    
+    // Switch to appointments tab to show the new booking
+    setActiveTab("appointments");
+  };
+
   const viewImage = (image: ServiceImage) => {
     setSelectedImage(image);
     setIsViewImageOpen(true);
@@ -340,7 +434,11 @@ const Dashboard = () => {
                     ) : (
                       <div className="flex flex-col items-center justify-center py-6">
                         <p className="text-sm text-gray-500 mb-4">No upcoming services</p>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setIsBookServiceOpen(true)}
+                        >
                           Book a Service
                         </Button>
                       </div>
@@ -416,7 +514,7 @@ const Dashboard = () => {
                             variant="ghost" 
                             size="sm" 
                             className="mt-2 w-full text-carservice-blue"
-                            onClick={() => setActiveTab("images")}
+                            onClick={() => setActiveTab("service-images")}
                           >
                             View all {userData.serviceImages!.length} images
                           </Button>
@@ -493,7 +591,12 @@ const Dashboard = () => {
                   </CardHeader>
                   <CardContent className="flex flex-col items-center justify-center py-6">
                     <p className="text-gray-500 mb-4">Book your first service to start building your service history</p>
-                    <Button variant="outline">Book a Service</Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsBookServiceOpen(true)}
+                    >
+                      Book a Service
+                    </Button>
                   </CardContent>
                 </Card>
               )}
@@ -976,6 +1079,112 @@ const Dashboard = () => {
           <DialogFooter>
             <Button onClick={() => setIsViewImageOpen(false)}>Close</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBookServiceOpen} onOpenChange={setIsBookServiceOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Book a Service</DialogTitle>
+            <DialogDescription>
+              Schedule a service appointment for your vehicle
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {userData.vehicles && userData.vehicles.length > 0 ? (
+              <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="vehicle" className="text-right">
+                    Vehicle
+                  </Label>
+                  <div className="col-span-3">
+                    <Select 
+                      value={newService.vehicleId}
+                      onValueChange={(value) => setNewService({...newService, vehicleId: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {userData.vehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                            {vehicle.year} {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="service" className="text-right">
+                    Service Type
+                  </Label>
+                  <div className="col-span-3">
+                    <Select 
+                      value={newService.serviceType}
+                      onValueChange={(value) => setNewService({...newService, serviceType: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select service type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serviceTypes.map((service) => (
+                          <SelectItem key={service} value={service}>
+                            {service}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="date" className="text-right">
+                    Date
+                  </Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    className="col-span-3"
+                    value={newService.date}
+                    onChange={(e) => setNewService({...newService, date: e.target.value})}
+                    min={new Date().toISOString().split('T')[0]} // Can't select dates in the past
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="time" className="text-right">
+                    Time
+                  </Label>
+                  <Input
+                    id="time"
+                    type="time"
+                    className="col-span-3"
+                    value={newService.time}
+                    onChange={(e) => setNewService({...newService, time: e.target.value})}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="py-4 text-center">
+                <p className="text-gray-500 mb-4">You need to add a vehicle before booking a service</p>
+                <Button 
+                  onClick={() => {
+                    setIsBookServiceOpen(false);
+                    setIsAddVehicleDialogOpen(true);
+                  }}
+                >
+                  Add Vehicle
+                </Button>
+              </div>
+            )}
+          </div>
+          {userData.vehicles && userData.vehicles.length > 0 && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsBookServiceOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleBookService}>Book Service</Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

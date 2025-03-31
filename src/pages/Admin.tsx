@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const sampleServiceImages = [
   { url: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60", title: "Engine Service" },
   { url: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=500&auto=format&fit=crop&q=60", title: "Brake Inspection" },
   { url: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7?w=500&auto=format&fit=crop&q=60", title: "Tire Rotation" },
+  { url: "/lovable-uploads/1cc0e11a-9d93-4eed-8d02-59aa9a487c33.png", title: "Complete Service" },
 ];
 
 const Admin = () => {
@@ -50,6 +52,8 @@ const Admin = () => {
   const [serviceImages, setServiceImages] = useState<{ url: string; title: string }[]>([]);
   const [newImageTitle, setNewImageTitle] = useState("");
   const [selectedImages, setSelectedImages] = useState<{ url: string; title: string }[]>([]);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadImageTitle, setUploadImageTitle] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -78,6 +82,18 @@ const Admin = () => {
     });
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setUploadedImage(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleImageUpload = () => {
     if (!selectedCustomerId) {
       toast({
@@ -88,11 +104,30 @@ const Admin = () => {
       return;
     }
 
+    let imagesToUpload = selectedImages;
+
+    // Add uploaded image if there is one
+    if (uploadedImage && uploadImageTitle) {
+      imagesToUpload = [
+        ...imagesToUpload,
+        { url: uploadedImage, title: uploadImageTitle }
+      ];
+    }
+
+    if (imagesToUpload.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select or upload at least one image",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const userData = localStorage.getItem(`userData_${selectedCustomerId}`);
     if (userData) {
       const parsedUserData = JSON.parse(userData);
       
-      parsedUserData.serviceImages = selectedImages.map(img => ({
+      parsedUserData.serviceImages = imagesToUpload.map(img => ({
         url: img.url,
         title: img.title,
       }));
@@ -101,7 +136,7 @@ const Admin = () => {
       
       const newNotification = {
         id: (parsedUserData.notifications?.length || 0) + 1,
-        message: `Service progress images (${selectedImages.length}) have been uploaded for your vehicle`,
+        message: `Service progress images (${imagesToUpload.length}) have been uploaded for your vehicle`,
         date: new Date().toISOString().split('T')[0],
         read: false
       };
@@ -111,10 +146,12 @@ const Admin = () => {
       
       toast({
         title: "Images uploaded",
-        description: `${selectedImages.length} service progress images have been uploaded for ${selectedCustomer}`,
+        description: `${imagesToUpload.length} service progress images have been uploaded for ${selectedCustomer}`,
       });
       
       setSelectedImages([]);
+      setUploadedImage(null);
+      setUploadImageTitle("");
       setIsImageUploadDialogOpen(false);
     }
   };
@@ -687,7 +724,7 @@ const Admin = () => {
                   <CommandInput placeholder="Search customer..." />
                   <CommandEmpty>No customer found.</CommandEmpty>
                   <CommandGroup className="max-h-[200px] overflow-y-auto">
-                    {customers.map((customer) => {
+                    {(() => {
                       const allUsers = Object.keys(localStorage)
                         .filter(key => key.startsWith('userData_'))
                         .map(key => {
@@ -705,11 +742,43 @@ const Admin = () => {
                           {user.name} {selectedCustomerId === user.id && "✓"}
                         </CommandItem>
                       ));
-                    })}
+                    })()}
                   </CommandGroup>
                 </Command>
               </div>
             </div>
+
+            {/* Upload new image section */}
+            <div className="grid grid-cols-1 gap-4 mt-2 p-4 border rounded-md">
+              <Label>Upload New Image</Label>
+              <div className="flex gap-4 items-center">
+                <div className="flex-1">
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileChange}
+                    className="mb-2"
+                  />
+                  {uploadedImage && (
+                    <div className="mt-2 mb-2">
+                      <img 
+                        src={uploadedImage} 
+                        alt="Preview" 
+                        className="w-full max-h-[150px] object-cover rounded-md"
+                      />
+                    </div>
+                  )}
+                  <Input 
+                    type="text" 
+                    placeholder="Image title" 
+                    value={uploadImageTitle}
+                    onChange={(e) => setUploadImageTitle(e.target.value)}
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 mt-4">
               <Label>Available Images</Label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto border rounded-md p-3">
@@ -763,7 +832,10 @@ const Admin = () => {
             <Button variant="outline" onClick={() => setIsImageUploadDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleImageUpload} disabled={selectedImages.length === 0 || !selectedCustomerId}>
+            <Button 
+              onClick={handleImageUpload} 
+              disabled={(selectedImages.length === 0 && !uploadedImage) || !selectedCustomerId}
+            >
               Upload Images
             </Button>
           </DialogFooter>
