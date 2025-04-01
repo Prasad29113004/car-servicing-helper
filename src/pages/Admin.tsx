@@ -36,11 +36,81 @@ const getCustomersFromStorage = () => {
   ];
 };
 
-const appointments = [
-  { id: 1, customer: "John Doe", vehicle: "Toyota Camry", service: "Oil Change", date: "2023-09-20", time: "10:00 AM", status: "Confirmed" },
-  { id: 2, customer: "Jane Smith", vehicle: "Honda Civic", service: "Brake Inspection", date: "2023-09-21", time: "2:30 PM", status: "Pending" },
-  { id: 3, customer: "Mike Johnson", vehicle: "Ford F-150", service: "Tire Rotation", date: "2023-09-22", time: "9:15 AM", status: "Confirmed" },
-];
+interface Appointment {
+  id: number | string;
+  customer: string;
+  customerId?: string | number;
+  vehicle: string;
+  services: string[] | string;
+  date: string;
+  time: string;
+  status: string;
+  price?: string;
+}
+
+const getAppointmentsFromStorage = (): Appointment[] => {
+  try {
+    // First check for a dedicated appointments storage
+    const storedAppointments = localStorage.getItem("allAppointments");
+    if (storedAppointments) {
+      return JSON.parse(storedAppointments);
+    }
+
+    // If no dedicated storage, gather appointments from user data
+    const appointments: Appointment[] = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('userData_')) {
+        try {
+          const userData = JSON.parse(localStorage.getItem(key) || '{}');
+          const userId = key.replace('userData_', '');
+          
+          if (userData && Array.isArray(userData.appointments)) {
+            userData.appointments.forEach((appointment: any, index: number) => {
+              if (appointment) {
+                appointments.push({
+                  id: `${userId}_${index}`,
+                  customerId: userId,
+                  customer: userData.fullName || "Unknown User",
+                  vehicle: appointment.vehicle || "Unknown Vehicle",
+                  services: Array.isArray(appointment.services) 
+                    ? appointment.services.join(", ") 
+                    : appointment.service || "Unknown Service",
+                  date: appointment.date || "Unknown Date",
+                  time: appointment.time || "Unknown Time",
+                  status: appointment.status || "Pending",
+                  price: appointment.price || "₹0"
+                });
+              }
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing user appointments:", error);
+        }
+      }
+    }
+
+    console.log("Found appointments in user data:", appointments.length);
+    
+    if (appointments.length > 0) {
+      try {
+        localStorage.setItem("allAppointments", JSON.stringify(appointments));
+      } catch (error) {
+        console.error("Error saving appointments to storage:", error);
+      }
+      return appointments;
+    }
+  } catch (error) {
+    console.error("Error loading appointments from storage:", error);
+  }
+  
+  return [
+    { id: 1, customer: "John Doe", vehicle: "Toyota Camry", services: "Oil Change", date: "2023-09-20", time: "10:00 AM", status: "Confirmed" },
+    { id: 2, customer: "Jane Smith", vehicle: "Honda Civic", services: "Brake Inspection", date: "2023-09-21", time: "2:30 PM", status: "Pending" },
+    { id: 3, customer: "Mike Johnson", vehicle: "Ford F-150", services: "Tire Rotation", date: "2023-09-22", time: "9:15 AM", status: "Confirmed" },
+  ];
+};
 
 const serviceReminders = [
   { id: 1, customer: "John Doe", vehicle: "Toyota Camry", service: "General Service", dueDate: "2023-09-30", lastSent: "Never" },
@@ -129,6 +199,7 @@ const Admin = () => {
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customers, setCustomers] = useState<RegisteredUser[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [serviceImages, setServiceImages] = useState<{ url: string; title: string }[]>(sampleServiceImages || []);
   const [newImageTitle, setNewImageTitle] = useState("");
   const [selectedImages, setSelectedImages] = useState<{ url: string; title: string }[]>([]);
@@ -150,7 +221,12 @@ const Admin = () => {
     setRegisteredUsers(users);
     setCustomers(users);
     
+    // Load appointments from storage
+    const storedAppointments = getAppointmentsFromStorage();
+    setAppointments(storedAppointments);
+    
     console.log("Registered users loaded:", users.length);
+    console.log("Appointments loaded:", storedAppointments.length);
   }, [navigate]);
   
   const sendServiceReminder = () => {
@@ -286,6 +362,65 @@ const Admin = () => {
     }
   };
 
+  // Function to update appointment status
+  const handleUpdateAppointmentStatus = (appointmentId: string | number, newStatus: string) => {
+    const updatedAppointments = appointments.map(appointment => {
+      if (appointment.id === appointmentId) {
+        return { ...appointment, status: newStatus };
+      }
+      return appointment;
+    });
+    
+    setAppointments(updatedAppointments);
+    
+    // Update in localStorage
+    try {
+      localStorage.setItem("allAppointments", JSON.stringify(updatedAppointments));
+      
+      // If the appointment has a customerId, update in user data as well
+      const appointment = appointments.find(a => a.id === appointmentId);
+      if (appointment && appointment.customerId) {
+        const userData = localStorage.getItem(`userData_${appointment.customerId}`);
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          if (Array.isArray(parsedUserData.appointments)) {
+            // Update status in the user's appointments array
+            const userAppointments = parsedUserData.appointments.map((a: any, index: number) => {
+              if (`${appointment.customerId}_${index}` === appointmentId) {
+                return { ...a, status: newStatus };
+              }
+              return a;
+            });
+            
+            parsedUserData.appointments = userAppointments;
+            localStorage.setItem(`userData_${appointment.customerId}`, JSON.stringify(parsedUserData));
+          }
+        }
+      }
+      
+      toast({
+        title: "Status updated",
+        description: `Appointment status has been updated to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error("Error updating appointment status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update appointment status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Get today's appointments
+  const getTodayAppointments = () => {
+    const today = new Date().toISOString().split('T')[0];
+    return appointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.date).toISOString().split('T')[0];
+      return appointmentDate === today;
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -340,7 +475,7 @@ const Admin = () => {
                     <div className="flex items-center">
                       <CalendarCheck className="h-10 w-10 text-carservice-blue" />
                       <div className="ml-4">
-                        <p className="text-3xl font-bold">2</p>
+                        <p className="text-3xl font-bold">{getTodayAppointments().length}</p>
                         <p className="text-sm text-gray-500">Scheduled services</p>
                       </div>
                     </div>
@@ -370,7 +505,7 @@ const Admin = () => {
                     <div className="flex items-center">
                       <Wrench className="h-10 w-10 text-carservice-blue" />
                       <div className="ml-4">
-                        <p className="text-3xl font-bold">35</p>
+                        <p className="text-3xl font-bold">{appointments.filter(a => a.status === "Completed").length}</p>
                         <p className="text-sm text-gray-500">This month</p>
                       </div>
                     </div>
@@ -397,32 +532,38 @@ const Admin = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {appointments.map((appointment) => (
-                          <tr key={appointment.id} className="border-b">
-                            <td className="py-3 px-4">{appointment.customer}</td>
-                            <td className="py-3 px-4">{appointment.vehicle}</td>
-                            <td className="py-3 px-4">{appointment.service}</td>
-                            <td className="py-3 px-4">{appointment.time}</td>
-                            <td className="py-3 px-4">
-                              <Badge variant={appointment.status === "Confirmed" ? "default" : "secondary"}>
-                                {appointment.status}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm" onClick={() => setIsInvoiceDialogOpen(true)}>
-                                  Invoice
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => {
-                                  setSelectedCustomer(appointment.customer);
-                                  setIsReminderDialogOpen(true);
-                                }}>
-                                  Remind
-                                </Button>
-                              </div>
-                            </td>
+                        {getTodayAppointments().length > 0 ? (
+                          getTodayAppointments().map((appointment) => (
+                            <tr key={appointment.id} className="border-b">
+                              <td className="py-3 px-4">{appointment.customer}</td>
+                              <td className="py-3 px-4">{appointment.vehicle}</td>
+                              <td className="py-3 px-4">{appointment.services}</td>
+                              <td className="py-3 px-4">{appointment.time}</td>
+                              <td className="py-3 px-4">
+                                <Badge variant={appointment.status === "Confirmed" ? "default" : "secondary"}>
+                                  {appointment.status}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex space-x-2">
+                                  <Button variant="outline" size="sm" onClick={() => setIsInvoiceDialogOpen(true)}>
+                                    Invoice
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => {
+                                    setSelectedCustomer(appointment.customer);
+                                    setIsReminderDialogOpen(true);
+                                  }}>
+                                    Remind
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-gray-500">No appointments scheduled for today</td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -523,36 +664,66 @@ const Admin = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {appointments.map((appointment) => (
-                          <tr key={appointment.id} className="border-b">
-                            <td className="py-3 px-4">{appointment.customer}</td>
-                            <td className="py-3 px-4">{appointment.vehicle}</td>
-                            <td className="py-3 px-4">{appointment.service}</td>
-                            <td className="py-3 px-4">
-                              {new Date(appointment.date).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric"
-                              })}
-                            </td>
-                            <td className="py-3 px-4">{appointment.time}</td>
-                            <td className="py-3 px-4">
-                              <Badge variant={appointment.status === "Confirmed" ? "default" : "secondary"}>
-                                {appointment.status}
-                              </Badge>
-                            </td>
-                            <td className="py-3 px-4">
-                              <div className="flex space-x-2">
-                                <Button variant="outline" size="sm">
-                                  Edit
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => setIsInvoiceDialogOpen(true)}>
-                                  Invoice
-                                </Button>
-                              </div>
-                            </td>
+                        {appointments.length > 0 ? (
+                          appointments.map((appointment) => (
+                            <tr key={appointment.id} className="border-b">
+                              <td className="py-3 px-4">{appointment.customer}</td>
+                              <td className="py-3 px-4">{appointment.vehicle}</td>
+                              <td className="py-3 px-4">{appointment.services}</td>
+                              <td className="py-3 px-4">
+                                {new Date(appointment.date).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric"
+                                })}
+                              </td>
+                              <td className="py-3 px-4">{appointment.time}</td>
+                              <td className="py-3 px-4">
+                                <Select 
+                                  value={appointment.status} 
+                                  onValueChange={(value) => handleUpdateAppointmentStatus(appointment.id, value)}
+                                >
+                                  <SelectTrigger className="w-[130px]">
+                                    <SelectValue>
+                                      <Badge variant={
+                                        appointment.status === "Confirmed" ? "default" : 
+                                        appointment.status === "Completed" ? "success" : 
+                                        appointment.status === "Cancelled" ? "destructive" : 
+                                        "secondary"
+                                      }>
+                                        {appointment.status}
+                                      </Badge>
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Pending">Pending</SelectItem>
+                                    <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="In Progress">In Progress</SelectItem>
+                                    <SelectItem value="Completed">Completed</SelectItem>
+                                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex space-x-2">
+                                  <Button variant="outline" size="sm">
+                                    Edit
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => {
+                                    setSelectedCustomer(appointment.customer);
+                                    setIsInvoiceDialogOpen(true);
+                                  }}>
+                                    Invoice
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={7} className="py-6 text-center text-gray-500">No appointments found</td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -611,363 +782,4 @@ const Admin = () => {
                             <td className="py-3 px-4">
                               <div className="flex space-x-2">
                                 <Button variant="outline" size="sm" onClick={() => {
-                                  setSelectedCustomer(reminder.customer);
-                                  setIsReminderDialogOpen(true);
-                                }}>
-                                  Send Reminder
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="images" className="space-y-6">
-              <Card className="shadow-md">
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Service Progress Images</CardTitle>
-                      <CardDescription>Upload and manage vehicle service images for customers</CardDescription>
-                    </div>
-                    <Button onClick={() => {
-                      setSelectedImages([]);
-                      setUploadedImage(null);
-                      setUploadImageTitle("");
-                      setIsImageUploadDialogOpen(true);
-                    }}>Upload Images</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Collapsible className="w-full">
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" className="flex w-full justify-between p-4 rounded-lg border">
-                        <span>Recent Image Uploads</span>
-                        <span>▼</span>
-                      </Button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="p-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                        {serviceImages.map((image, index) => (
-                          <div key={index} className="border rounded-lg overflow-hidden">
-                            <img 
-                              src={image.url} 
-                              alt={image.title} 
-                              className="w-full h-40 object-cover"
-                            />
-                            <div className="p-2 bg-gray-50">
-                              <h4 className="font-medium">{image.title}</h4>
-                              <p className="text-sm text-gray-500">Uploaded today</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
-
-      <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Send Service Reminder</DialogTitle>
-            <DialogDescription>
-              {selectedCustomer ? `Send a service reminder to ${selectedCustomer}` : "Create a new service reminder"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="customer" className="text-right">
-                Customer
-              </Label>
-              <div className="col-span-3">
-                <Select defaultValue={selectedCustomer ? selectedCustomer : ""}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAllRegisteredUsers().map((customer) => (
-                      <SelectItem key={customer.id} value={customer.name}>{customer.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="service" className="text-right">
-                Service
-              </Label>
-              <div className="col-span-3">
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oil-change">Oil Change</SelectItem>
-                    <SelectItem value="general-service">General Service</SelectItem>
-                    <SelectItem value="brake-service">Brake Service</SelectItem>
-                    <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="date" className="text-right">
-                Due Date
-              </Label>
-              <Input
-                id="date"
-                type="date"
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="message" className="text-right pt-2">
-                Message
-              </Label>
-              <Textarea
-                id="message"
-                className="col-span-3"
-                placeholder="Your vehicle is due for service..."
-                defaultValue="Your vehicle is due for a service soon. Please contact us to schedule an appointment at your earliest convenience."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsReminderDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={sendServiceReminder}>Send Reminder</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Generate Invoice</DialogTitle>
-            <DialogDescription>
-              Create an invoice for the completed service
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="customer-invoice" className="text-right">
-                Customer
-              </Label>
-              <div className="col-span-3">
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAllRegisteredUsers().map((customer) => (
-                      <SelectItem key={customer.id} value={customer.name}>{customer.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="service-invoice" className="text-right">
-                Service
-              </Label>
-              <div className="col-span-3">
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oil-change">Oil Change ($45.99)</SelectItem>
-                    <SelectItem value="general-service">General Service ($150.00)</SelectItem>
-                    <SelectItem value="brake-service">Brake Service ($220.50)</SelectItem>
-                    <SelectItem value="tire-rotation">Tire Rotation ($35.00)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="amount" className="text-right">
-                Amount
-              </Label>
-              <div className="col-span-3">
-                <div className="flex items-center">
-                  <span className="mr-2">$</span>
-                  <Input
-                    id="amount"
-                    type="number"
-                    placeholder="0.00"
-                    defaultValue="45.99"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="notes" className="text-right pt-2">
-                Notes
-              </Label>
-              <Textarea
-                id="notes"
-                className="col-span-3"
-                placeholder="Service details..."
-                defaultValue="Oil change service with premium synthetic oil. Filter replaced. All fluid levels checked and topped up as needed."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInvoiceDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={generateInvoice}>Generate Invoice</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isImageUploadDialogOpen} onOpenChange={setIsImageUploadDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Upload Service Progress Images</DialogTitle>
-            <DialogDescription>
-              Upload service progress images to share with the customer
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="customer" className="text-right">
-                Customer
-              </Label>
-              <div className="col-span-3">
-                <Command className="border rounded-md">
-                  <CommandInput placeholder="Search customer..." />
-                  <CommandList>
-                    <CommandEmpty>No customer found.</CommandEmpty>
-                    <CommandGroup>
-                      {getAllRegisteredUsers().map(user => (
-                        <CommandItem 
-                          key={user.id}
-                          onSelect={() => handleSelectCustomer(user.id, user.name)}
-                          className="cursor-pointer"
-                        >
-                          {user.name} {selectedCustomerId === String(user.id) && "✓"}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-                {selectedCustomer && (
-                  <p className="mt-2 text-sm text-green-600">Selected: {selectedCustomer}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 mt-2 p-4 border rounded-md">
-              <Label>Upload New Image</Label>
-              <div className="flex gap-4 items-center">
-                <div className="flex-1">
-                  <Input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handleFileChange}
-                    className="mb-2"
-                  />
-                  {uploadedImage && (
-                    <div className="mt-2 mb-2">
-                      <img 
-                        src={uploadedImage} 
-                        alt="Preview" 
-                        className="w-full max-h-[150px] object-cover rounded-md"
-                      />
-                    </div>
-                  )}
-                  <Input 
-                    type="text" 
-                    placeholder="Image title" 
-                    value={uploadImageTitle}
-                    onChange={(e) => setUploadImageTitle(e.target.value)}
-                    className="mt-2"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 mt-4">
-              <Label>Available Images</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto border rounded-md p-3">
-                {sampleServiceImages.map((image, index) => (
-                  <div 
-                    key={index} 
-                    className={`border rounded-lg overflow-hidden cursor-pointer ${
-                      selectedImages.some(img => img.url === image.url) ? 'ring-2 ring-blue-500' : ''
-                    }`}
-                    onClick={() => handleToggleImage(image)}
-                  >
-                    <div className="relative">
-                      <img 
-                        src={image.url} 
-                        alt={image.title} 
-                        className="w-full h-24 object-cover"
-                      />
-                      {selectedImages.some(img => img.url === image.url) && (
-                        <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full w-5 h-5 flex items-center justify-center">
-                          ✓
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-2 bg-gray-50">
-                      <div className="flex items-center">
-                        <Checkbox 
-                          id={`image-${index}`}
-                          checked={selectedImages.some(img => img.url === image.url)}
-                          onCheckedChange={() => handleToggleImage(image)}
-                          className="mr-2"
-                        />
-                        <Label htmlFor={`image-${index}`} className="text-sm">
-                          {image.title}
-                        </Label>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4 mt-2">
-              <Label htmlFor="selectedCount" className="text-right">
-                Selected
-              </Label>
-              <div className="col-span-3">
-                <p>{selectedImages.length} images selected</p>
-                {!selectedCustomerId && (
-                  <p className="text-red-500 text-sm mt-1">Please select a customer first</p>
-                )}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsImageUploadDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleImageUpload} 
-              disabled={(selectedImages.length === 0 && !uploadedImage) || !selectedCustomerId}
-            >
-              Upload Images
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Footer />
-    </div>
-  );
-};
-
-export default Admin;
+                                  setSelectedCustomer(reminder
