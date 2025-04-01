@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -782,4 +783,300 @@ const Admin = () => {
                             <td className="py-3 px-4">
                               <div className="flex space-x-2">
                                 <Button variant="outline" size="sm" onClick={() => {
-                                  setSelectedCustomer(reminder
+                                  setSelectedCustomer(reminder.customer);
+                                  setIsReminderDialogOpen(true);
+                                }}>
+                                  Send Reminder
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="images" className="space-y-6">
+              <Card className="shadow-md">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Service Progress Images</CardTitle>
+                      <CardDescription>Upload and manage service images for customers</CardDescription>
+                    </div>
+                    <Button onClick={() => setIsImageUploadDialogOpen(true)}>Upload Images</Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {serviceImages.map((image, index) => (
+                      <div key={index} className="border rounded-md overflow-hidden">
+                        <div className="relative aspect-video">
+                          <img 
+                            src={image.url} 
+                            alt={image.title} 
+                            className="object-cover w-full h-full"
+                          />
+                        </div>
+                        <div className="p-2">
+                          <p className="font-medium">{image.title}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Service Reminder Dialog */}
+          <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Send Service Reminder</DialogTitle>
+                <DialogDescription>
+                  Send a service reminder notification to the customer.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="customer" className="text-right">
+                    Customer
+                  </Label>
+                  <div className="col-span-3">
+                    <Select value={selectedCustomer ? "selected" : ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedCustomer || "Select customer"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem 
+                            key={customer.id} 
+                            value={String(customer.id)}
+                            onClick={() => handleSelectCustomer(customer.id, customer.name)}
+                          >
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="service" className="text-right">
+                    Service
+                  </Label>
+                  <Select defaultValue="general" className="col-span-3">
+                    <SelectTrigger id="service">
+                      <SelectValue placeholder="Select service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General Service</SelectItem>
+                      <SelectItem value="oil">Oil Change</SelectItem>
+                      <SelectItem value="brakes">Brake Service</SelectItem>
+                      <SelectItem value="tires">Tire Rotation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="message" className="text-right">
+                    Message
+                  </Label>
+                  <Textarea
+                    id="message"
+                    className="col-span-3"
+                    placeholder="Optional custom message"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsReminderDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" onClick={sendServiceReminder}>
+                  Send Reminder
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Invoice Dialog */}
+          <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Generate Invoice</DialogTitle>
+                <DialogDescription>
+                  Create and send an invoice for completed services.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="invoice-customer" className="text-right">
+                    Customer
+                  </Label>
+                  <Input
+                    id="invoice-customer"
+                    value={selectedCustomer}
+                    readOnly
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="invoice-service" className="text-right">
+                    Service
+                  </Label>
+                  <Select defaultValue="oil" className="col-span-3">
+                    <SelectTrigger id="invoice-service">
+                      <SelectValue placeholder="Select service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General Service</SelectItem>
+                      <SelectItem value="oil">Oil Change</SelectItem>
+                      <SelectItem value="brakes">Brake Service</SelectItem>
+                      <SelectItem value="tires">Tire Rotation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="invoice-amount" className="text-right">
+                    Amount
+                  </Label>
+                  <Input
+                    id="invoice-amount"
+                    placeholder="₹1,500.00"
+                    className="col-span-3"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsInvoiceDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" onClick={generateInvoice}>
+                  Generate & Send
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Image Upload Dialog */}
+          <Dialog open={isImageUploadDialogOpen} onOpenChange={setIsImageUploadDialogOpen}>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Upload Service Images</DialogTitle>
+                <DialogDescription>
+                  Upload service progress images to share with customers.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="image-customer" className="text-right">
+                    Customer
+                  </Label>
+                  <div className="col-span-3">
+                    <Select value={selectedCustomer ? "selected" : ""}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedCustomer || "Select customer"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem 
+                            key={customer.id} 
+                            value={String(customer.id)}
+                            onClick={() => handleSelectCustomer(customer.id, customer.name)}
+                          >
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="block">Select from library</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {serviceImages.map((image, index) => (
+                      <div 
+                        key={index} 
+                        className={`border rounded-md overflow-hidden cursor-pointer ${
+                          selectedImages.some(img => img.url === image.url) ? 'ring-2 ring-blue-500' : ''
+                        }`}
+                        onClick={() => handleToggleImage(image)}
+                      >
+                        <div className="relative aspect-video">
+                          <img 
+                            src={image.url} 
+                            alt={image.title} 
+                            className="object-cover w-full h-full"
+                          />
+                          {selectedImages.some(img => img.url === image.url) && (
+                            <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1">
+                              <Checkbox checked disabled className="h-4 w-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2">
+                          <p className="text-sm font-medium truncate">{image.title}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="image-upload" className="block">Upload new image</Label>
+                  <div className="flex flex-col space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        id="image-title"
+                        placeholder="Image title"
+                        value={uploadImageTitle}
+                        onChange={(e) => setUploadImageTitle(e.target.value)}
+                      />
+                      <Label
+                        htmlFor="image-upload"
+                        className="cursor-pointer bg-secondary hover:bg-secondary/80 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap"
+                      >
+                        <Upload className="h-4 w-4 inline mr-1" /> Browse
+                      </Label>
+                      <Input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </div>
+                    {uploadedImage && (
+                      <div className="relative w-full h-40 border rounded-md overflow-hidden">
+                        <img 
+                          src={uploadedImage} 
+                          alt="Preview" 
+                          className="object-contain w-full h-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsImageUploadDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleImageUpload}>
+                  Upload
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+export default Admin;
