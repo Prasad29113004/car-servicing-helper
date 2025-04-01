@@ -15,6 +15,9 @@ import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const services = [
@@ -226,7 +229,10 @@ const Booking = () => {
                     {selectedServices.length > 0 && (
                       <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium">Total:</span>
+                          <div>
+                            <span className="font-medium">Selected Services: </span>
+                            <span className="text-sm">{selectedServices.length}</span>
+                          </div>
                           <span className="text-lg font-bold text-carservice-blue">{getTotalPrice()}</span>
                         </div>
                       </div>

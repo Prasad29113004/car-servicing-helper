@@ -107,7 +107,7 @@ const Dashboard = () => {
   const [isBookServiceOpen, setIsBookServiceOpen] = useState(false);
   const [newService, setNewService] = useState({
     vehicleId: "",
-    serviceType: "",
+    serviceTypes: [] as string[],
     date: "",
     time: "10:00"
   });
@@ -282,7 +282,7 @@ const Dashboard = () => {
   };
 
   const handleBookService = () => {
-    if (!newService.vehicleId || !newService.serviceType || !newService.date) {
+    if (!newService.vehicleId || newService.serviceTypes.length === 0 || !newService.date) {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
@@ -303,30 +303,32 @@ const Dashboard = () => {
     
     const updatedUserData = { ...userData };
     
-    // Generate a new unique ID for the service
-    const newId = updatedUserData.upcomingServices && updatedUserData.upcomingServices.length > 0
-      ? Math.max(...updatedUserData.upcomingServices.map(s => s.id)) + 1
-      : 1;
+    newService.serviceTypes.forEach((serviceType, index) => {
+      const newId = updatedUserData.upcomingServices && updatedUserData.upcomingServices.length > 0
+        ? Math.max(...updatedUserData.upcomingServices.map(s => s.id)) + 1 + index
+        : 1 + index;
+      
+      const newAppointment: AppointmentData = {
+        id: newId,
+        service: serviceType,
+        date: newService.date,
+        status: "Pending",
+        amount: `₹${(Math.floor(Math.random() * 5000) + 1000).toFixed(2)}`
+      };
+      
+      updatedUserData.upcomingServices = [
+        ...(updatedUserData.upcomingServices || []),
+        newAppointment
+      ];
+    });
     
-    // Create new appointment object
-    const newAppointment: AppointmentData = {
-      id: newId,
-      service: newService.serviceType,
-      date: newService.date,
-      status: "Pending",
-      amount: `₹${(Math.floor(Math.random() * 5000) + 1000).toFixed(2)}` // Random price for demo
-    };
+    const servicesText = newService.serviceTypes.length > 1 
+      ? `${newService.serviceTypes.length} services` 
+      : newService.serviceTypes[0];
     
-    // Add to user's upcoming services
-    updatedUserData.upcomingServices = [
-      ...(updatedUserData.upcomingServices || []),
-      newAppointment
-    ];
-    
-    // Create notification
     const newNotification = {
       id: (notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1),
-      message: `Your ${newService.serviceType} appointment has been scheduled for ${new Date(newService.date).toLocaleDateString()}`,
+      message: `Your ${servicesText} appointment${newService.serviceTypes.length > 1 ? 's have' : ' has'} been scheduled for ${new Date(newService.date).toLocaleDateString()}`,
       date: new Date().toISOString().split('T')[0],
       read: false
     };
@@ -336,7 +338,6 @@ const Dashboard = () => {
       newNotification
     ];
     
-    // Save to localStorage
     const currentUserId = localStorage.getItem("currentUserId");
     if (currentUserId) {
       localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
@@ -344,10 +345,9 @@ const Dashboard = () => {
       setNotifications([...notifications, newNotification]);
     }
     
-    // Reset form and close dialog
     setNewService({
       vehicleId: "",
-      serviceType: "",
+      serviceTypes: [],
       date: "",
       time: "10:00"
     });
@@ -356,11 +356,23 @@ const Dashboard = () => {
     
     toast({
       title: "Service booked",
-      description: `Your ${newService.serviceType} has been scheduled for ${new Date(newService.date).toLocaleDateString()}`
+      description: `Your ${servicesText} ${newService.serviceTypes.length > 1 ? 'have' : 'has'} been scheduled for ${new Date(newService.date).toLocaleDateString()}`
     });
     
-    // Switch to appointments tab to show the new booking
     setActiveTab("appointments");
+  };
+
+  const handleServiceSelection = (value: string) => {
+    setNewService(prev => {
+      const updatedServiceTypes = prev.serviceTypes.includes(value)
+        ? prev.serviceTypes.filter(type => type !== value)
+        : [...prev.serviceTypes, value];
+      
+      return {
+        ...prev,
+        serviceTypes: updatedServiceTypes
+      };
+    });
   };
 
   const viewImage = (image: ServiceImage) => {
@@ -1115,26 +1127,33 @@ const Dashboard = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="service" className="text-right">
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label htmlFor="service" className="text-right pt-2">
                     Service Type
                   </Label>
                   <div className="col-span-3">
-                    <Select 
-                      value={newService.serviceType}
-                      onValueChange={(value) => setNewService({...newService, serviceType: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select service type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {serviceTypes.map((service) => (
-                          <SelectItem key={service} value={service}>
+                    <div className="space-y-2">
+                      {serviceTypes.map((service) => (
+                        <div key={service} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`service-${service}`}
+                            checked={newService.serviceTypes.includes(service)}
+                            onCheckedChange={() => handleServiceSelection(service)}
+                          />
+                          <Label 
+                            htmlFor={`service-${service}`}
+                            className="cursor-pointer"
+                          >
                             {service}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    {newService.serviceTypes.length === 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Please select at least one service
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -1162,6 +1181,16 @@ const Dashboard = () => {
                     onChange={(e) => setNewService({...newService, time: e.target.value})}
                   />
                 </div>
+                {newService.serviceTypes.length > 0 && (
+                  <div className="pl-4 pt-2">
+                    <p className="text-sm font-medium">Selected services:</p>
+                    <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                      {newService.serviceTypes.map(service => (
+                        <li key={service}>{service}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </>
             ) : (
               <div className="py-4 text-center">
@@ -1182,7 +1211,7 @@ const Dashboard = () => {
               <Button variant="outline" onClick={() => setIsBookServiceOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleBookService}>Book Service</Button>
+              <Button onClick={handleBookService}>Book Service{newService.serviceTypes.length > 1 ? 's' : ''}</Button>
             </DialogFooter>
           )}
         </DialogContent>
