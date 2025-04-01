@@ -64,6 +64,9 @@ const Register = () => {
       };
       localStorage.setItem(`credentials_${email}`, JSON.stringify(userCredentials));
       
+      // Current date for registration/last update
+      const currentDate = new Date().toISOString().split('T')[0];
+      
       // Store user information - now with empty arrays for important collections
       const userData = {
         id: userId,
@@ -74,11 +77,39 @@ const Register = () => {
         vehicles: [], // Initialize empty vehicles array
         upcomingServices: [], // Initialize empty upcoming services array
         serviceHistory: [], // Initialize empty service history array
-        notifications: [] // Initialize empty notifications array
+        notifications: [], // Initialize empty notifications array
+        serviceImages: [], // Initialize empty service images array
+        registrationDate: currentDate, // Add registration date
+        lastUpdated: currentDate // Add last update date
       };
       
       // Save under user specific key
       localStorage.setItem(`userData_${userId}`, JSON.stringify(userData));
+      
+      // Also update the all customers collection for admin
+      try {
+        let allCustomers = [];
+        const storedCustomers = localStorage.getItem("allCustomers");
+        
+        if (storedCustomers) {
+          allCustomers = JSON.parse(storedCustomers);
+        }
+        
+        // Add the new customer to the list
+        allCustomers.push({
+          id: userId,
+          name: fullName,
+          email,
+          phone,
+          vehicles: 0,
+          lastService: "No services yet"
+        });
+        
+        // Update the allCustomers list
+        localStorage.setItem("allCustomers", JSON.stringify(allCustomers));
+      } catch (error) {
+        console.error("Error updating customers list:", error);
+      }
       
       toast({
         title: "Registration successful",

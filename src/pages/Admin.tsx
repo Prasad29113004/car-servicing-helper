@@ -23,9 +23,12 @@ const getCustomersFromStorage = () => {
     if (storedCustomers) {
       return JSON.parse(storedCustomers);
     }
+    
+    return getAllRegisteredUsers();
   } catch (error) {
     console.error("Error loading customers from storage:", error);
   }
+  
   return [
     { id: 1, name: "John Doe", email: "john@example.com", phone: "(555) 123-4567", vehicles: 2, lastService: "2023-06-15" },
     { id: 2, name: "Jane Smith", email: "jane@example.com", phone: "(555) 987-6543", vehicles: 1, lastService: "2023-07-22" },
@@ -49,6 +52,8 @@ const sampleServiceImages = [
   { url: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=500&auto=format&fit=crop&q=60", title: "Brake Inspection" },
   { url: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7?w=500&auto=format&fit=crop&q=60", title: "Tire Rotation" },
   { url: "/lovable-uploads/1cc0e11a-9d93-4eed-8d02-59aa9a487c33.png", title: "Complete Service" },
+  { url: "/lovable-uploads/cb6a4ec8-b918-4978-b763-593612f03b52.png", title: "Oil Change Service" },
+  { url: "/lovable-uploads/fa60b102-82f0-4fd8-83f2-1528bdb868c9.png", title: "Suspension Check" },
 ];
 
 interface RegisteredUser {
@@ -60,6 +65,62 @@ interface RegisteredUser {
   lastService: string;
 }
 
+const getAllRegisteredUsers = (): RegisteredUser[] => {
+  const registeredUsers: RegisteredUser[] = [];
+  
+  try {
+    const storedCustomers = localStorage.getItem("allCustomers");
+    if (storedCustomers) {
+      const parsedCustomers = JSON.parse(storedCustomers);
+      if (Array.isArray(parsedCustomers) && parsedCustomers.length > 0) {
+        return parsedCustomers;
+      }
+    }
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('userData_')) {
+        try {
+          const userData = JSON.parse(localStorage.getItem(key) || '{}');
+          if (userData && userData.fullName) {
+            registeredUsers.push({
+              id: userData.id || key.replace('userData_', ''),
+              name: userData.fullName,
+              email: userData.email || '',
+              phone: userData.phone || '',
+              vehicles: Array.isArray(userData.vehicles) ? userData.vehicles.length : 0,
+              lastService: Array.isArray(userData.serviceHistory) && userData.serviceHistory.length > 0 
+                ? userData.serviceHistory[0].date 
+                : "No services yet"
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error reading localStorage:", error);
+  }
+  
+  if (registeredUsers.length > 0) {
+    try {
+      localStorage.setItem("allCustomers", JSON.stringify(registeredUsers));
+    } catch (error) {
+      console.error("Error updating allCustomers:", error);
+    }
+    return registeredUsers;
+  }
+  
+  const sampleData = [
+    { id: 1, name: "John Doe", email: "john@example.com", phone: "(555) 123-4567", vehicles: 2, lastService: "2023-06-15" },
+    { id: 2, name: "Jane Smith", email: "jane@example.com", phone: "(555) 987-6543", vehicles: 1, lastService: "2023-07-22" },
+    { id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "(555) 456-7890", vehicles: 3, lastService: "2023-08-05" },
+  ];
+  
+  return sampleData;
+};
+
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
@@ -67,8 +128,8 @@ const Admin = () => {
   const [isImageUploadDialogOpen, setIsImageUploadDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
-  const [customers, setCustomers] = useState(getCustomersFromStorage());
-  const [serviceImages, setServiceImages] = useState<{ url: string; title: string }[]>([]);
+  const [customers, setCustomers] = useState<RegisteredUser[]>([]);
+  const [serviceImages, setServiceImages] = useState<{ url: string; title: string }[]>(sampleServiceImages || []);
   const [newImageTitle, setNewImageTitle] = useState("");
   const [selectedImages, setSelectedImages] = useState<{ url: string; title: string }[]>([]);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
@@ -85,11 +146,11 @@ const Admin = () => {
       navigate("/login");
     }
     
-    // Refresh customer list from storage
-    setCustomers(getCustomersFromStorage());
+    const users = getAllRegisteredUsers();
+    setRegisteredUsers(users);
+    setCustomers(users);
     
-    // Load registered users
-    setRegisteredUsers(getAllRegisteredUsers());
+    console.log("Registered users loaded:", users.length);
   }, [navigate]);
   
   const sendServiceReminder = () => {
@@ -130,14 +191,17 @@ const Admin = () => {
       return;
     }
 
-    let imagesToUpload = [...selectedImages];
+    let imagesToUpload: { url: string; title: string }[] = [];
+    
+    if (Array.isArray(selectedImages)) {
+      imagesToUpload = [...selectedImages];
+    }
 
-    // Add uploaded image if there is one
     if (uploadedImage && uploadImageTitle) {
-      imagesToUpload = [
-        ...imagesToUpload,
-        { url: uploadedImage, title: uploadImageTitle }
-      ];
+      imagesToUpload.push({
+        url: uploadedImage,
+        title: uploadImageTitle
+      });
     }
 
     if (imagesToUpload.length === 0) {
@@ -154,33 +218,34 @@ const Admin = () => {
       if (userData) {
         const parsedUserData = JSON.parse(userData);
         
-        // Initialize serviceImages if it doesn't exist
         if (!parsedUserData.serviceImages) {
           parsedUserData.serviceImages = [];
         }
         
-        // Add the new images
         parsedUserData.serviceImages = [
           ...(parsedUserData.serviceImages || []),
           ...imagesToUpload.map(img => ({
             url: img.url,
             title: img.title,
+            date: new Date().toISOString().split('T')[0]
           }))
         ];
         
-        // Initialize notifications if it doesn't exist
         if (!parsedUserData.notifications) {
           parsedUserData.notifications = [];
         }
         
         const newNotification = {
-          id: (parsedUserData.notifications.length || 0) + 1,
+          id: parsedUserData.notifications.length > 0 ? 
+               Math.max(...parsedUserData.notifications.map((n: any) => n.id)) + 1 : 1,
           message: `Service progress images (${imagesToUpload.length}) have been uploaded for your vehicle`,
           date: new Date().toISOString().split('T')[0],
           read: false
         };
         
         parsedUserData.notifications.push(newNotification);
+        
+        parsedUserData.lastUpdated = new Date().toISOString().split('T')[0];
         
         localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
         
@@ -193,12 +258,14 @@ const Admin = () => {
         setUploadedImage(null);
         setUploadImageTitle("");
         setIsImageUploadDialogOpen(false);
+      } else {
+        throw new Error("User data not found");
       }
     } catch (error) {
       console.error("Error uploading images:", error);
       toast({
         title: "Error",
-        description: "Failed to upload images",
+        description: "Failed to upload images. User data not found.",
         variant: "destructive",
       });
     }
@@ -210,44 +277,13 @@ const Admin = () => {
   };
 
   const handleToggleImage = (image: { url: string; title: string }) => {
-    if (selectedImages.some(img => img.url === image.url)) {
-      setSelectedImages(selectedImages.filter(img => img.url !== image.url));
+    const currentSelectedImages = Array.isArray(selectedImages) ? selectedImages : [];
+    
+    if (currentSelectedImages.some(img => img.url === image.url)) {
+      setSelectedImages(currentSelectedImages.filter(img => img.url !== image.url));
     } else {
-      setSelectedImages([...selectedImages, image]);
+      setSelectedImages([...currentSelectedImages, image]);
     }
-  };
-
-  const getAllRegisteredUsers = (): RegisteredUser[] => {
-    const registeredUsers: RegisteredUser[] = [];
-    
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('userData_')) {
-          try {
-            const userData = JSON.parse(localStorage.getItem(key) || '{}');
-            if (userData && userData.fullName) {
-              registeredUsers.push({
-                id: userData.id || key.replace('userData_', ''),
-                name: userData.fullName,
-                email: userData.email || '',
-                phone: userData.phone || '',
-                vehicles: Array.isArray(userData.vehicles) ? userData.vehicles.length : 0,
-                lastService: Array.isArray(userData.serviceHistory) && userData.serviceHistory.length > 0 
-                  ? userData.serviceHistory[0].date 
-                  : "No services yet"
-              });
-            }
-          } catch (error) {
-            console.error("Error parsing user data:", error);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error reading localStorage:", error);
-    }
-    
-    return registeredUsers.length > 0 ? registeredUsers : customers;
   };
 
   return (
@@ -289,7 +325,7 @@ const Admin = () => {
                     <div className="flex items-center">
                       <Users className="h-10 w-10 text-carservice-blue" />
                       <div className="ml-4">
-                        <p className="text-3xl font-bold">{customers.length}</p>
+                        <p className="text-3xl font-bold">{registeredUsers.length}</p>
                         <p className="text-sm text-gray-500">Active accounts</p>
                       </div>
                     </div>
@@ -617,7 +653,7 @@ const Admin = () => {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="p-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                        {sampleServiceImages.map((image, index) => (
+                        {serviceImages.map((image, index) => (
                           <div key={index} className="border rounded-lg overflow-hidden">
                             <img 
                               src={image.url} 
@@ -827,6 +863,9 @@ const Admin = () => {
                     </CommandGroup>
                   </CommandList>
                 </Command>
+                {selectedCustomer && (
+                  <p className="mt-2 text-sm text-green-600">Selected: {selectedCustomer}</p>
+                )}
               </div>
             </div>
 
@@ -906,6 +945,9 @@ const Admin = () => {
               </Label>
               <div className="col-span-3">
                 <p>{selectedImages.length} images selected</p>
+                {!selectedCustomerId && (
+                  <p className="text-red-500 text-sm mt-1">Please select a customer first</p>
+                )}
               </div>
             </div>
           </div>
