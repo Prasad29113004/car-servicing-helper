@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -50,10 +51,13 @@ interface Appointment {
 
 const getAppointmentsFromStorage = (): Appointment[] => {
   try {
+    console.log("Fetching appointments from storage...");
     // First check for a dedicated appointments storage
     const storedAppointments = localStorage.getItem("allAppointments");
     if (storedAppointments) {
-      return JSON.parse(storedAppointments);
+      const parsed = JSON.parse(storedAppointments);
+      console.log("Found stored appointments:", parsed.length);
+      return parsed;
     }
 
     // If no dedicated storage, gather appointments from user data
@@ -65,18 +69,36 @@ const getAppointmentsFromStorage = (): Appointment[] => {
         try {
           const userData = JSON.parse(localStorage.getItem(key) || '{}');
           const userId = key.replace('userData_', '');
+          console.log(`Processing user ${userId}, found data:`, userData);
           
-          if (userData && Array.isArray(userData.appointments)) {
+          if (userData && userData.appointments && Array.isArray(userData.appointments)) {
+            console.log(`User ${userId} has ${userData.appointments.length} appointments`);
+            
             userData.appointments.forEach((appointment: any, index: number) => {
               if (appointment) {
+                console.log(`Processing appointment:`, appointment);
+                const appointmentId = `${userId}_${index}`;
+                
+                // Process service field - it might be array, string, or have different property names
+                let services = "Unknown Service";
+                if (Array.isArray(appointment.services)) {
+                  services = appointment.services.join(", ");
+                } else if (typeof appointment.services === 'string') {
+                  services = appointment.services;
+                } else if (typeof appointment.service === 'string') {
+                  services = appointment.service;
+                } else if (appointment.serviceNames) {
+                  services = Array.isArray(appointment.serviceNames) 
+                    ? appointment.serviceNames.join(", ") 
+                    : appointment.serviceNames;
+                }
+                
                 appointments.push({
-                  id: `${userId}_${index}`,
+                  id: appointmentId,
                   customerId: userId,
                   customer: userData.fullName || "Unknown User",
-                  vehicle: appointment.vehicle || "Unknown Vehicle",
-                  services: Array.isArray(appointment.services) 
-                    ? appointment.services.join(", ") 
-                    : appointment.service || "Unknown Service",
+                  vehicle: appointment.vehicle || `${appointment.carYear || ''} ${appointment.carMake || ''} ${appointment.carModel || ''}`.trim() || "Unknown Vehicle",
+                  services: services,
                   date: appointment.date || "Unknown Date",
                   time: appointment.time || "Unknown Time",
                   status: appointment.status || "Pending",
@@ -92,19 +114,25 @@ const getAppointmentsFromStorage = (): Appointment[] => {
     }
 
     console.log("Found appointments in user data:", appointments.length);
+    console.log("Appointments:", appointments);
     
     if (appointments.length > 0) {
       try {
         localStorage.setItem("allAppointments", JSON.stringify(appointments));
+        console.log("Saved appointments to storage");
       } catch (error) {
         console.error("Error saving appointments to storage:", error);
       }
       return appointments;
     }
+    
+    // Return sample data if no appointments found
+    console.log("No appointments found, returning sample data");
   } catch (error) {
     console.error("Error loading appointments from storage:", error);
   }
   
+  // Sample data as fallback
   return [
     { id: 1, customer: "John Doe", vehicle: "Toyota Camry", services: "Oil Change", date: "2023-09-20", time: "10:00 AM", status: "Confirmed" },
     { id: 2, customer: "Jane Smith", vehicle: "Honda Civic", services: "Brake Inspection", date: "2023-09-21", time: "2:30 PM", status: "Pending" },
@@ -216,6 +244,9 @@ const Admin = () => {
     if (!isLoggedIn || userRole !== "admin") {
       navigate("/login");
     }
+    
+    // Clear existing appointments first
+    localStorage.removeItem("allAppointments");
     
     const users = getAllRegisteredUsers();
     setRegisteredUsers(users);
