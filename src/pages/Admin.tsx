@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,13 +15,16 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
-// Load customers from localStorage or use sample data if none exist
 const getCustomersFromStorage = () => {
-  const storedCustomers = localStorage.getItem("allCustomers");
-  if (storedCustomers) {
-    return JSON.parse(storedCustomers);
+  try {
+    const storedCustomers = localStorage.getItem("allCustomers");
+    if (storedCustomers) {
+      return JSON.parse(storedCustomers);
+    }
+  } catch (error) {
+    console.error("Error loading customers from storage:", error);
   }
   return [
     { id: 1, name: "John Doe", email: "john@example.com", phone: "(555) 123-4567", vehicles: 2, lastService: "2023-06-15" },
@@ -49,6 +51,15 @@ const sampleServiceImages = [
   { url: "/lovable-uploads/1cc0e11a-9d93-4eed-8d02-59aa9a487c33.png", title: "Complete Service" },
 ];
 
+interface RegisteredUser {
+  id: string | number;
+  name: string;
+  email: string;
+  phone: string;
+  vehicles: number;
+  lastService: string;
+}
+
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
@@ -62,6 +73,7 @@ const Admin = () => {
   const [selectedImages, setSelectedImages] = useState<{ url: string; title: string }[]>([]);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadImageTitle, setUploadImageTitle] = useState("");
+  const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -75,6 +87,9 @@ const Admin = () => {
     
     // Refresh customer list from storage
     setCustomers(getCustomersFromStorage());
+    
+    // Load registered users
+    setRegisteredUsers(getAllRegisteredUsers());
   }, [navigate]);
   
   const sendServiceReminder = () => {
@@ -134,54 +149,63 @@ const Admin = () => {
       return;
     }
 
-    const userData = localStorage.getItem(`userData_${selectedCustomerId}`);
-    if (userData) {
-      const parsedUserData = JSON.parse(userData);
-      
-      // Initialize serviceImages if it doesn't exist
-      if (!parsedUserData.serviceImages) {
-        parsedUserData.serviceImages = [];
+    try {
+      const userData = localStorage.getItem(`userData_${selectedCustomerId}`);
+      if (userData) {
+        const parsedUserData = JSON.parse(userData);
+        
+        // Initialize serviceImages if it doesn't exist
+        if (!parsedUserData.serviceImages) {
+          parsedUserData.serviceImages = [];
+        }
+        
+        // Add the new images
+        parsedUserData.serviceImages = [
+          ...(parsedUserData.serviceImages || []),
+          ...imagesToUpload.map(img => ({
+            url: img.url,
+            title: img.title,
+          }))
+        ];
+        
+        // Initialize notifications if it doesn't exist
+        if (!parsedUserData.notifications) {
+          parsedUserData.notifications = [];
+        }
+        
+        const newNotification = {
+          id: (parsedUserData.notifications.length || 0) + 1,
+          message: `Service progress images (${imagesToUpload.length}) have been uploaded for your vehicle`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        };
+        
+        parsedUserData.notifications.push(newNotification);
+        
+        localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
+        
+        toast({
+          title: "Images uploaded",
+          description: `${imagesToUpload.length} service progress images have been uploaded for ${selectedCustomer}`,
+        });
+        
+        setSelectedImages([]);
+        setUploadedImage(null);
+        setUploadImageTitle("");
+        setIsImageUploadDialogOpen(false);
       }
-      
-      // Add the new images
-      parsedUserData.serviceImages = [
-        ...(parsedUserData.serviceImages || []),
-        ...imagesToUpload.map(img => ({
-          url: img.url,
-          title: img.title,
-        }))
-      ];
-      
-      // Initialize notifications if it doesn't exist
-      if (!parsedUserData.notifications) {
-        parsedUserData.notifications = [];
-      }
-      
-      const newNotification = {
-        id: (parsedUserData.notifications.length || 0) + 1,
-        message: `Service progress images (${imagesToUpload.length}) have been uploaded for your vehicle`,
-        date: new Date().toISOString().split('T')[0],
-        read: false
-      };
-      
-      parsedUserData.notifications.push(newNotification);
-      
-      localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
-      
+    } catch (error) {
+      console.error("Error uploading images:", error);
       toast({
-        title: "Images uploaded",
-        description: `${imagesToUpload.length} service progress images have been uploaded for ${selectedCustomer}`,
+        title: "Error",
+        description: "Failed to upload images",
+        variant: "destructive",
       });
-      
-      setSelectedImages([]);
-      setUploadedImage(null);
-      setUploadImageTitle("");
-      setIsImageUploadDialogOpen(false);
     }
   };
 
   const handleSelectCustomer = (customerId: string, customerName: string) => {
-    setSelectedCustomerId(customerId);
+    setSelectedCustomerId(customerId.toString());
     setSelectedCustomer(customerName);
   };
 
@@ -193,31 +217,36 @@ const Admin = () => {
     }
   };
 
-  // Function to get all registered users from localStorage
-  const getAllRegisteredUsers = () => {
-    const registeredUsers = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('userData_')) {
-        try {
-          const userData = JSON.parse(localStorage.getItem(key) || '{}');
-          if (userData && userData.fullName) {
-            registeredUsers.push({
-              id: key.replace('userData_', ''),
-              name: userData.fullName,
-              email: userData.email || '',
-              phone: userData.phone || '',
-              vehicles: Array.isArray(userData.vehicles) ? userData.vehicles.length : 0,
-              lastService: Array.isArray(userData.serviceHistory) && userData.serviceHistory.length > 0 
-                ? userData.serviceHistory[0].date 
-                : "No services yet"
-            });
+  const getAllRegisteredUsers = (): RegisteredUser[] => {
+    const registeredUsers: RegisteredUser[] = [];
+    
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('userData_')) {
+          try {
+            const userData = JSON.parse(localStorage.getItem(key) || '{}');
+            if (userData && userData.fullName) {
+              registeredUsers.push({
+                id: userData.id || key.replace('userData_', ''),
+                name: userData.fullName,
+                email: userData.email || '',
+                phone: userData.phone || '',
+                vehicles: Array.isArray(userData.vehicles) ? userData.vehicles.length : 0,
+                lastService: Array.isArray(userData.serviceHistory) && userData.serviceHistory.length > 0 
+                  ? userData.serviceHistory[0].date 
+                  : "No services yet"
+              });
+            }
+          } catch (error) {
+            console.error("Error parsing user data:", error);
           }
-        } catch (error) {
-          console.error("Error parsing user data:", error);
         }
       }
+    } catch (error) {
+      console.error("Error reading localStorage:", error);
     }
+    
     return registeredUsers.length > 0 ? registeredUsers : customers;
   };
 
@@ -783,23 +812,24 @@ const Admin = () => {
               <div className="col-span-3">
                 <Command className="border rounded-md">
                   <CommandInput placeholder="Search customer..." />
-                  <CommandEmpty>No customer found.</CommandEmpty>
-                  <CommandGroup className="max-h-[200px] overflow-y-auto">
-                    {getAllRegisteredUsers().map(user => (
-                      <CommandItem 
-                        key={user.id}
-                        onSelect={() => handleSelectCustomer(user.id, user.name)}
-                        className="cursor-pointer"
-                      >
-                        {user.name} {selectedCustomerId === user.id && "✓"}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  <CommandList>
+                    <CommandEmpty>No customer found.</CommandEmpty>
+                    <CommandGroup>
+                      {registeredUsers.map(user => (
+                        <CommandItem 
+                          key={user.id}
+                          onSelect={() => handleSelectCustomer(user.id.toString(), user.name)}
+                          className="cursor-pointer"
+                        >
+                          {user.name} {selectedCustomerId === user.id.toString() && "✓"}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
                 </Command>
               </div>
             </div>
 
-            {/* Upload new image section */}
             <div className="grid grid-cols-1 gap-4 mt-2 p-4 border rounded-md">
               <Label>Upload New Image</Label>
               <div className="flex gap-4 items-center">
