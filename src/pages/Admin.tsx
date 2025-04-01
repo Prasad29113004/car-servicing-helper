@@ -18,11 +18,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 
-const customers = [
-  { id: 1, name: "John Doe", email: "john@example.com", phone: "(555) 123-4567", vehicles: 2, lastService: "2023-06-15" },
-  { id: 2, name: "Jane Smith", email: "jane@example.com", phone: "(555) 987-6543", vehicles: 1, lastService: "2023-07-22" },
-  { id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "(555) 456-7890", vehicles: 3, lastService: "2023-08-05" },
-];
+// Load customers from localStorage or use sample data if none exist
+const getCustomersFromStorage = () => {
+  const storedCustomers = localStorage.getItem("allCustomers");
+  if (storedCustomers) {
+    return JSON.parse(storedCustomers);
+  }
+  return [
+    { id: 1, name: "John Doe", email: "john@example.com", phone: "(555) 123-4567", vehicles: 2, lastService: "2023-06-15" },
+    { id: 2, name: "Jane Smith", email: "jane@example.com", phone: "(555) 987-6543", vehicles: 1, lastService: "2023-07-22" },
+    { id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "(555) 456-7890", vehicles: 3, lastService: "2023-08-05" },
+  ];
+};
 
 const appointments = [
   { id: 1, customer: "John Doe", vehicle: "Toyota Camry", service: "Oil Change", date: "2023-09-20", time: "10:00 AM", status: "Confirmed" },
@@ -49,6 +56,7 @@ const Admin = () => {
   const [isImageUploadDialogOpen, setIsImageUploadDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customers, setCustomers] = useState(getCustomersFromStorage());
   const [serviceImages, setServiceImages] = useState<{ url: string; title: string }[]>([]);
   const [newImageTitle, setNewImageTitle] = useState("");
   const [selectedImages, setSelectedImages] = useState<{ url: string; title: string }[]>([]);
@@ -64,6 +72,9 @@ const Admin = () => {
     if (!isLoggedIn || userRole !== "admin") {
       navigate("/login");
     }
+    
+    // Refresh customer list from storage
+    setCustomers(getCustomersFromStorage());
   }, [navigate]);
   
   const sendServiceReminder = () => {
@@ -104,7 +115,7 @@ const Admin = () => {
       return;
     }
 
-    let imagesToUpload = selectedImages;
+    let imagesToUpload = [...selectedImages];
 
     // Add uploaded image if there is one
     if (uploadedImage && uploadImageTitle) {
@@ -127,21 +138,34 @@ const Admin = () => {
     if (userData) {
       const parsedUserData = JSON.parse(userData);
       
-      parsedUserData.serviceImages = imagesToUpload.map(img => ({
-        url: img.url,
-        title: img.title,
-      }));
+      // Initialize serviceImages if it doesn't exist
+      if (!parsedUserData.serviceImages) {
+        parsedUserData.serviceImages = [];
+      }
       
-      localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
+      // Add the new images
+      parsedUserData.serviceImages = [
+        ...(parsedUserData.serviceImages || []),
+        ...imagesToUpload.map(img => ({
+          url: img.url,
+          title: img.title,
+        }))
+      ];
+      
+      // Initialize notifications if it doesn't exist
+      if (!parsedUserData.notifications) {
+        parsedUserData.notifications = [];
+      }
       
       const newNotification = {
-        id: (parsedUserData.notifications?.length || 0) + 1,
+        id: (parsedUserData.notifications.length || 0) + 1,
         message: `Service progress images (${imagesToUpload.length}) have been uploaded for your vehicle`,
         date: new Date().toISOString().split('T')[0],
         read: false
       };
       
-      parsedUserData.notifications = [...(parsedUserData.notifications || []), newNotification];
+      parsedUserData.notifications.push(newNotification);
+      
       localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
       
       toast({
@@ -167,6 +191,34 @@ const Admin = () => {
     } else {
       setSelectedImages([...selectedImages, image]);
     }
+  };
+
+  // Function to get all registered users from localStorage
+  const getAllRegisteredUsers = () => {
+    const registeredUsers = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('userData_')) {
+        try {
+          const userData = JSON.parse(localStorage.getItem(key) || '{}');
+          if (userData && userData.fullName) {
+            registeredUsers.push({
+              id: key.replace('userData_', ''),
+              name: userData.fullName,
+              email: userData.email || '',
+              phone: userData.phone || '',
+              vehicles: Array.isArray(userData.vehicles) ? userData.vehicles.length : 0,
+              lastService: Array.isArray(userData.serviceHistory) && userData.serviceHistory.length > 0 
+                ? userData.serviceHistory[0].date 
+                : "No services yet"
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      }
+    }
+    return registeredUsers.length > 0 ? registeredUsers : customers;
   };
 
   return (
@@ -338,18 +390,21 @@ const Admin = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {customers.map((customer) => (
+                        {getAllRegisteredUsers().map((customer) => (
                           <tr key={customer.id} className="border-b">
                             <td className="py-3 px-4">{customer.name}</td>
                             <td className="py-3 px-4">{customer.email}</td>
                             <td className="py-3 px-4">{customer.phone}</td>
                             <td className="py-3 px-4">{customer.vehicles}</td>
                             <td className="py-3 px-4">
-                              {new Date(customer.lastService).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric"
-                              })}
+                              {customer.lastService === "No services yet" ? 
+                                <span className="text-orange-500">No services yet</span> :
+                                new Date(customer.lastService).toLocaleDateString("en-US", {
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric"
+                                })
+                              }
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex space-x-2">
@@ -361,6 +416,7 @@ const Admin = () => {
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => {
                                   setSelectedCustomer(customer.name);
+                                  setSelectedCustomerId(customer.id);
                                   setIsReminderDialogOpen(true);
                                 }}>
                                   Remind
@@ -514,7 +570,12 @@ const Admin = () => {
                       <CardTitle>Service Progress Images</CardTitle>
                       <CardDescription>Upload and manage vehicle service images for customers</CardDescription>
                     </div>
-                    <Button onClick={() => setIsImageUploadDialogOpen(true)}>Upload Images</Button>
+                    <Button onClick={() => {
+                      setSelectedImages([]);
+                      setUploadedImage(null);
+                      setUploadImageTitle("");
+                      setIsImageUploadDialogOpen(true);
+                    }}>Upload Images</Button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -569,7 +630,7 @@ const Admin = () => {
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map((customer) => (
+                    {getAllRegisteredUsers().map((customer) => (
                       <SelectItem key={customer.id} value={customer.name}>{customer.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -644,7 +705,7 @@ const Admin = () => {
                     <SelectValue placeholder="Select customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {customers.map((customer) => (
+                    {getAllRegisteredUsers().map((customer) => (
                       <SelectItem key={customer.id} value={customer.name}>{customer.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -724,25 +785,15 @@ const Admin = () => {
                   <CommandInput placeholder="Search customer..." />
                   <CommandEmpty>No customer found.</CommandEmpty>
                   <CommandGroup className="max-h-[200px] overflow-y-auto">
-                    {(() => {
-                      const allUsers = Object.keys(localStorage)
-                        .filter(key => key.startsWith('userData_'))
-                        .map(key => {
-                          const userId = key.replace('userData_', '');
-                          const userData = JSON.parse(localStorage.getItem(key) || '{}');
-                          return { id: userId, name: userData.fullName };
-                        });
-                      
-                      return allUsers.map(user => (
-                        <CommandItem 
-                          key={user.id}
-                          onSelect={() => handleSelectCustomer(user.id, user.name)}
-                          className="cursor-pointer"
-                        >
-                          {user.name} {selectedCustomerId === user.id && "✓"}
-                        </CommandItem>
-                      ));
-                    })()}
+                    {getAllRegisteredUsers().map(user => (
+                      <CommandItem 
+                        key={user.id}
+                        onSelect={() => handleSelectCustomer(user.id, user.name)}
+                        className="cursor-pointer"
+                      >
+                        {user.name} {selectedCustomerId === user.id && "✓"}
+                      </CommandItem>
+                    ))}
                   </CommandGroup>
                 </Command>
               </div>
