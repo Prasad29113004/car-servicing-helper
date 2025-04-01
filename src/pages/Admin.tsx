@@ -204,8 +204,8 @@ const Admin = () => {
     }
   };
 
-  const handleSelectCustomer = (customerId: string, customerName: string) => {
-    setSelectedCustomerId(customerId.toString());
+  const handleSelectCustomer = (customerId: string | number, customerName: string) => {
+    setSelectedCustomerId(String(customerId));
     setSelectedCustomer(customerName);
   };
 
@@ -445,7 +445,7 @@ const Admin = () => {
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => {
                                   setSelectedCustomer(customer.name);
-                                  setSelectedCustomerId(customer.id);
+                                  setSelectedCustomerId(String(customer.id));
                                   setIsReminderDialogOpen(true);
                                 }}>
                                   Remind
@@ -815,13 +815,13 @@ const Admin = () => {
                   <CommandList>
                     <CommandEmpty>No customer found.</CommandEmpty>
                     <CommandGroup>
-                      {registeredUsers.map(user => (
+                      {getAllRegisteredUsers().map(user => (
                         <CommandItem 
                           key={user.id}
-                          onSelect={() => handleSelectCustomer(user.id.toString(), user.name)}
+                          onSelect={() => handleSelectCustomer(user.id, user.name)}
                           className="cursor-pointer"
                         >
-                          {user.name} {selectedCustomerId === user.id.toString() && "✓"}
+                          {user.name} {selectedCustomerId === String(user.id) && "✓"}
                         </CommandItem>
                       ))}
                     </CommandGroup>
