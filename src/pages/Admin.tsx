@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -363,7 +362,6 @@ const Admin = () => {
     }
   };
 
-  // Function to update appointment status
   const handleUpdateAppointmentStatus = (appointmentId: string | number, newStatus: string) => {
     const updatedAppointments = appointments.map(appointment => {
       if (appointment.id === appointmentId) {
@@ -374,18 +372,15 @@ const Admin = () => {
     
     setAppointments(updatedAppointments);
     
-    // Update in localStorage
     try {
       localStorage.setItem("allAppointments", JSON.stringify(updatedAppointments));
       
-      // If the appointment has a customerId, update in user data as well
       const appointment = appointments.find(a => a.id === appointmentId);
       if (appointment && appointment.customerId) {
         const userData = localStorage.getItem(`userData_${appointment.customerId}`);
         if (userData) {
           const parsedUserData = JSON.parse(userData);
           if (Array.isArray(parsedUserData.appointments)) {
-            // Update status in the user's appointments array
             const userAppointments = parsedUserData.appointments.map((a: any, index: number) => {
               if (`${appointment.customerId}_${index}` === appointmentId) {
                 return { ...a, status: newStatus };
@@ -413,7 +408,6 @@ const Admin = () => {
     }
   };
 
-  // Get today's appointments
   const getTodayAppointments = () => {
     const today = new Date().toISOString().split('T')[0];
     return appointments.filter(appointment => {
@@ -688,9 +682,9 @@ const Admin = () => {
                                     <SelectValue>
                                       <Badge variant={
                                         appointment.status === "Confirmed" ? "default" : 
-                                        appointment.status === "Completed" ? "success" : 
+                                        appointment.status === "Completed" ? "secondary" : 
                                         appointment.status === "Cancelled" ? "destructive" : 
-                                        "secondary"
+                                        "outline"
                                       }>
                                         {appointment.status}
                                       </Badge>
@@ -832,7 +826,6 @@ const Admin = () => {
             </TabsContent>
           </Tabs>
 
-          {/* Service Reminder Dialog */}
           <Dialog open={isReminderDialogOpen} onOpenChange={setIsReminderDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -869,8 +862,8 @@ const Admin = () => {
                   <Label htmlFor="service" className="text-right">
                     Service
                   </Label>
-                  <Select defaultValue="general" className="col-span-3">
-                    <SelectTrigger id="service">
+                  <Select defaultValue="general">
+                    <SelectTrigger id="service" className="col-span-3">
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
@@ -903,7 +896,6 @@ const Admin = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Invoice Dialog */}
           <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
@@ -928,8 +920,8 @@ const Admin = () => {
                   <Label htmlFor="invoice-service" className="text-right">
                     Service
                   </Label>
-                  <Select defaultValue="oil" className="col-span-3">
-                    <SelectTrigger id="invoice-service">
+                  <Select defaultValue="oil">
+                    <SelectTrigger id="invoice-service" className="col-span-3">
                       <SelectValue placeholder="Select service" />
                     </SelectTrigger>
                     <SelectContent>
@@ -962,7 +954,6 @@ const Admin = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Image Upload Dialog */}
           <Dialog open={isImageUploadDialogOpen} onOpenChange={setIsImageUploadDialogOpen}>
             <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
