@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -52,17 +51,11 @@ interface Appointment {
 const getAppointmentsFromStorage = (): Appointment[] => {
   try {
     console.log("Fetching appointments from storage...");
-    // First check for a dedicated appointments storage
-    const storedAppointments = localStorage.getItem("allAppointments");
-    if (storedAppointments) {
-      const parsed = JSON.parse(storedAppointments);
-      console.log("Found stored appointments:", parsed.length);
-      return parsed;
-    }
-
-    // If no dedicated storage, gather appointments from user data
+    
+    // First, check user data directly first (this is most likely where new appointments are)
     const appointments: Appointment[] = [];
     
+    // Gather appointments from user data
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('userData_')) {
@@ -71,42 +64,57 @@ const getAppointmentsFromStorage = (): Appointment[] => {
           const userId = key.replace('userData_', '');
           console.log(`Processing user ${userId}, found data:`, userData);
           
-          if (userData && userData.appointments && Array.isArray(userData.appointments)) {
-            console.log(`User ${userId} has ${userData.appointments.length} appointments`);
-            
-            userData.appointments.forEach((appointment: any, index: number) => {
-              if (appointment) {
-                console.log(`Processing appointment:`, appointment);
-                const appointmentId = `${userId}_${index}`;
-                
-                // Process service field - it might be array, string, or have different property names
-                let services = "Unknown Service";
-                if (Array.isArray(appointment.services)) {
-                  services = appointment.services.join(", ");
-                } else if (typeof appointment.services === 'string') {
-                  services = appointment.services;
-                } else if (typeof appointment.service === 'string') {
-                  services = appointment.service;
-                } else if (appointment.serviceNames) {
-                  services = Array.isArray(appointment.serviceNames) 
-                    ? appointment.serviceNames.join(", ") 
-                    : appointment.serviceNames;
+          // Look for appointments in different possible locations
+          const possibleAppointmentSources = [
+            userData.appointments,       // Regular appointments array
+            userData.upcomingServices    // Some apps may use upcomingServices instead
+          ];
+          
+          possibleAppointmentSources.forEach(source => {
+            if (Array.isArray(source)) {
+              console.log(`Found appointment source with ${source.length} items`);
+              
+              source.forEach((appointment: any, index: number) => {
+                if (appointment) {
+                  console.log(`Processing appointment:`, appointment);
+                  const appointmentId = `${userId}_${index}`;
+                  
+                  // Process service field - it might be array, string, or have different property names
+                  let services = "Unknown Service";
+                  if (Array.isArray(appointment.services)) {
+                    services = appointment.services.join(", ");
+                  } else if (typeof appointment.services === 'string') {
+                    services = appointment.services;
+                  } else if (typeof appointment.service === 'string') {
+                    services = appointment.service;
+                  } else if (appointment.serviceNames) {
+                    services = Array.isArray(appointment.serviceNames) 
+                      ? appointment.serviceNames.join(", ") 
+                      : appointment.serviceNames;
+                  }
+                  
+                  // Try to extract date in different formats
+                  let date = appointment.date || "Unknown Date";
+                  // Sometimes date might be in a nested object
+                  if (!appointment.date && appointment.appointmentDate) {
+                    date = appointment.appointmentDate;
+                  }
+                  
+                  appointments.push({
+                    id: appointmentId,
+                    customerId: userId,
+                    customer: userData.fullName || "Unknown User",
+                    vehicle: appointment.vehicle || `${appointment.carYear || ''} ${appointment.carMake || ''} ${appointment.carModel || ''}`.trim() || "Unknown Vehicle",
+                    services: services,
+                    date: date,
+                    time: appointment.time || "Unknown Time",
+                    status: appointment.status || "Pending",
+                    price: appointment.price || appointment.amount || "₹0"
+                  });
                 }
-                
-                appointments.push({
-                  id: appointmentId,
-                  customerId: userId,
-                  customer: userData.fullName || "Unknown User",
-                  vehicle: appointment.vehicle || `${appointment.carYear || ''} ${appointment.carMake || ''} ${appointment.carModel || ''}`.trim() || "Unknown Vehicle",
-                  services: services,
-                  date: appointment.date || "Unknown Date",
-                  time: appointment.time || "Unknown Time",
-                  status: appointment.status || "Pending",
-                  price: appointment.price || "₹0"
-                });
-              }
-            });
-          }
+              });
+            }
+          });
         } catch (error) {
           console.error("Error parsing user appointments:", error);
         }
@@ -124,6 +132,14 @@ const getAppointmentsFromStorage = (): Appointment[] => {
         console.error("Error saving appointments to storage:", error);
       }
       return appointments;
+    }
+    
+    // If no appointments in user data, try the cached appointments
+    const storedAppointments = localStorage.getItem("allAppointments");
+    if (storedAppointments) {
+      const parsed = JSON.parse(storedAppointments);
+      console.log("Found stored appointments:", parsed.length);
+      return parsed;
     }
     
     // Return sample data if no appointments found
@@ -244,9 +260,6 @@ const Admin = () => {
     if (!isLoggedIn || userRole !== "admin") {
       navigate("/login");
     }
-    
-    // Clear existing appointments first
-    localStorage.removeItem("allAppointments");
     
     const users = getAllRegisteredUsers();
     setRegisteredUsers(users);
@@ -441,10 +454,38 @@ const Admin = () => {
 
   const getTodayAppointments = () => {
     const today = new Date().toISOString().split('T')[0];
-    return appointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.date).toISOString().split('T')[0];
+    console.log("Today's date:", today);
+    console.log("All appointments:", appointments);
+    
+    const todayAppointments = appointments.filter(appointment => {
+      // Try to parse the date in different formats
+      let appointmentDate = '';
+      try {
+        // ISO format: 2023-09-15
+        if (appointment.date.includes('-')) {
+          appointmentDate = appointment.date.split('T')[0];
+        } 
+        // Slash format: 9/15/2023
+        else if (appointment.date.includes('/')) {
+          const parts = appointment.date.split('/');
+          const month = parts[0].padStart(2, '0');
+          const day = parts[1].padStart(2, '0');
+          const year = parts[2];
+          appointmentDate = `${year}-${month}-${day}`;
+        } else {
+          appointmentDate = new Date(appointment.date).toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.error("Error parsing date:", appointment.date, error);
+        return false;
+      }
+      
+      console.log(`Comparing ${appointmentDate} with today ${today}`);
       return appointmentDate === today;
     });
+    
+    console.log("Today's appointments:", todayAppointments);
+    return todayAppointments;
   };
 
   return (
