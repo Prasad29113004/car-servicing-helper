@@ -392,7 +392,6 @@ const Dashboard = () => {
 
   const handleRescheduleClick = (appointment: AppointmentData) => {
     setSelectedAppointment(appointment);
-    // Initialize with current appointment values
     setRescheduleData({
       date: appointment.date,
       time: appointment.time || "10:00"
@@ -920,3 +919,425 @@ const Dashboard = () => {
                                 })}
                               </p>
                             </div>
+                            {!notification.read && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => markAsRead(notification.id)}
+                              >
+                                Mark as read
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <p className="text-gray-500">You don't have any notifications</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="profile" className="space-y-6">
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>Your personal information</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid gap-2">
+                      <h3 className="font-semibold">Full Name</h3>
+                      <p className="text-gray-600">{userData.fullName}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <h3 className="font-semibold">Email Address</h3>
+                      <p className="text-gray-600">{userData.email}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <h3 className="font-semibold">Phone Number</h3>
+                      <p className="text-gray-600">{userData.phone || "Not provided"}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <h3 className="font-semibold">Address</h3>
+                      <p className="text-gray-600">{userData.address || "Not provided"}</p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={() => setIsUpdateProfileOpen(true)}
+                    >
+                      Update Profile
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
+      <Footer />
+
+      <Dialog open={isAddVehicleDialogOpen} onOpenChange={setIsAddVehicleDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Add a Vehicle</DialogTitle>
+            <DialogDescription>
+              Enter the details of your vehicle to add it to your profile.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="make">Make</Label>
+              <Select
+                value={newVehicle.make}
+                onValueChange={(value) => setNewVehicle({ ...newVehicle, make: value })}
+              >
+                <SelectTrigger id="make">
+                  <SelectValue placeholder="Select Make" />
+                </SelectTrigger>
+                <SelectContent>
+                  {carMakes.map((make) => (
+                    <SelectItem key={make} value={make}>
+                      {make}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="model">Model</Label>
+              <Input
+                id="model"
+                value={newVehicle.model}
+                onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })}
+                placeholder="Enter model"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="year">Year</Label>
+              <Input
+                id="year"
+                type="number"
+                value={newVehicle.year}
+                onChange={(e) => setNewVehicle({ ...newVehicle, year: Number(e.target.value) })}
+                placeholder="Enter year"
+                min="1900"
+                max={new Date().getFullYear() + 1}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="licensePlate">License Plate</Label>
+              <Input
+                id="licensePlate"
+                value={newVehicle.licensePlate}
+                onChange={(e) => setNewVehicle({ ...newVehicle, licensePlate: e.target.value })}
+                placeholder="Enter license plate number"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddVehicleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleAddVehicle}>
+              Add Vehicle
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isUpdateProfileOpen} onOpenChange={setIsUpdateProfileOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Update Profile</DialogTitle>
+            <DialogDescription>
+              Update your personal information.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                value={updatedUserData.fullName}
+                onChange={(e) => setUpdatedUserData({ ...updatedUserData, fullName: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                value={updatedUserData.email}
+                onChange={(e) => setUpdatedUserData({ ...updatedUserData, email: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <Input
+                id="phone"
+                value={updatedUserData.phone}
+                onChange={(e) => setUpdatedUserData({ ...updatedUserData, phone: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={updatedUserData.address}
+                onChange={(e) => setUpdatedUserData({ ...updatedUserData, address: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUpdateProfileOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleUpdateProfile}>
+              Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isImageUploadOpen} onOpenChange={setIsImageUploadOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Upload Service Images</DialogTitle>
+            <DialogDescription>
+              This is a demo mode. Click upload to add sample images.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-4">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center">
+              <Upload className="h-10 w-10 text-gray-400 mb-2" />
+              <p className="text-sm text-gray-500">Drag & drop files or click to browse</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsImageUploadOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleImageUpload}>
+              Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isViewImageOpen} onOpenChange={setIsViewImageOpen}>
+        <DialogContent className="sm:max-w-[425px] sm:max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{selectedImage?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="flex justify-center items-center py-4">
+            {selectedImage && (
+              <img 
+                src={selectedImage.url} 
+                alt={selectedImage.title} 
+                className="max-w-full max-h-[60vh] rounded-md"
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewImageOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBookServiceOpen} onOpenChange={setIsBookServiceOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Book a Service</DialogTitle>
+            <DialogDescription>
+              Schedule your next car service
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {userData.vehicles && userData.vehicles.length > 0 ? (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="vehicle">Select Vehicle</Label>
+                  <Select
+                    value={newService.vehicleId}
+                    onValueChange={(value) => setNewService({ ...newService, vehicleId: value })}
+                  >
+                    <SelectTrigger id="vehicle">
+                      <SelectValue placeholder="Choose a vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userData.vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={String(vehicle.id)}>
+                          {vehicle.year} {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Select Services</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {serviceTypes.map((service) => (
+                      <div className="flex items-center space-x-2" key={service}>
+                        <Checkbox 
+                          id={service} 
+                          checked={newService.serviceTypes.includes(service)}
+                          onCheckedChange={() => handleServiceSelection(service)}
+                        />
+                        <Label htmlFor={service} className="cursor-pointer">
+                          {service}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={newService.date}
+                    onChange={(e) => setNewService({ ...newService, date: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="time">Time</Label>
+                  <Select
+                    value={newService.time}
+                    onValueChange={(value) => setNewService({ ...newService, time: value })}
+                  >
+                    <SelectTrigger id="time">
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"].map((time) => (
+                        <SelectItem key={time} value={time}>
+                          {time}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-6">
+                <p className="text-gray-500 mb-4">You need to add a vehicle first</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsBookServiceOpen(false);
+                    setIsAddVehicleDialogOpen(true);
+                  }}
+                >
+                  Add a Vehicle
+                </Button>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsBookServiceOpen(false)}>
+              Cancel
+            </Button>
+            {userData.vehicles && userData.vehicles.length > 0 && (
+              <Button type="submit" onClick={handleBookService}>
+                Book Service
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRescheduleDialogOpen} onOpenChange={setIsRescheduleDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Reschedule Appointment</DialogTitle>
+            <DialogDescription>
+              Choose a new date and time for your service
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="rescheduleDate">New Date</Label>
+              <Input
+                id="rescheduleDate"
+                type="date"
+                value={rescheduleData.date}
+                onChange={(e) => setRescheduleData({ ...rescheduleData, date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="rescheduleTime">New Time</Label>
+              <Select
+                value={rescheduleData.time}
+                onValueChange={(value) => setRescheduleData({ ...rescheduleData, time: value })}
+              >
+                <SelectTrigger id="rescheduleTime">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"].map((time) => (
+                    <SelectItem key={time} value={time}>
+                      {time}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRescheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" onClick={handleRescheduleSubmit}>
+              Reschedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Cancel Appointment</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel this appointment?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedAppointment && (
+              <div className="space-y-2">
+                <p className="font-medium">{selectedAppointment.service}</p>
+                <p className="text-sm text-gray-500">
+                  {new Date(selectedAppointment.date).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                  })}
+                  {selectedAppointment.time && ` at ${selectedAppointment.time}`}
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>
+              Go Back
+            </Button>
+            <Button variant="destructive" onClick={handleCancelAppointment}>
+              Cancel Appointment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default Dashboard;
