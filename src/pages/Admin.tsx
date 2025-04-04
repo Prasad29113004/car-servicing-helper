@@ -1,9 +1,10 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, CalendarCheck, CarFront, FileText, Users, Wrench, Image, Upload } from "lucide-react";
+import { Bell, CalendarCheck, CarFront, FileText, Users, Wrench, Image, Upload, Edit, Receipt } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +53,7 @@ const getAppointmentsFromStorage = (): Appointment[] => {
   try {
     console.log("Fetching appointments from storage...");
     
-    // First, check user data directly first (this is most likely where new appointments are)
+    // First, check user data directly (this is most likely where new appointments are)
     const appointments: Appointment[] = [];
     
     // Gather appointments from user data
@@ -93,21 +94,38 @@ const getAppointmentsFromStorage = (): Appointment[] => {
                       : appointment.serviceNames;
                   }
                   
+                  // Extract vehicle information properly
+                  let vehicle = "Unknown Vehicle";
+                  if (appointment.vehicle && typeof appointment.vehicle === 'string') {
+                    vehicle = appointment.vehicle;
+                  } else if (appointment.carYear || appointment.carMake || appointment.carModel) {
+                    vehicle = `${appointment.carYear || ''} ${appointment.carMake || ''} ${appointment.carModel || ''}`.trim();
+                  } else if (userData.vehicles && Array.isArray(userData.vehicles) && userData.vehicles.length > 0) {
+                    const firstVehicle = userData.vehicles[0];
+                    vehicle = `${firstVehicle.year || ''} ${firstVehicle.make || ''} ${firstVehicle.model || ''} ${firstVehicle.licensePlate ? `(${firstVehicle.licensePlate})` : ''}`.trim();
+                  }
+                  
                   // Try to extract date in different formats
                   let date = appointment.date || "Unknown Date";
-                  // Sometimes date might be in a nested object
-                  if (!appointment.date && appointment.appointmentDate) {
-                    date = appointment.appointmentDate;
+                  
+                  // Handle time properly
+                  let time = "Unknown Time";
+                  if (appointment.time && typeof appointment.time === 'string') {
+                    time = appointment.time;
+                  } else if (appointment.appointmentTime) {
+                    time = appointment.appointmentTime;
+                  } else if (appointment.slot) {
+                    time = appointment.slot;
                   }
                   
                   appointments.push({
                     id: appointmentId,
                     customerId: userId,
                     customer: userData.fullName || "Unknown User",
-                    vehicle: appointment.vehicle || `${appointment.carYear || ''} ${appointment.carMake || ''} ${appointment.carModel || ''}`.trim() || "Unknown Vehicle",
+                    vehicle: vehicle,
                     services: services,
                     date: date,
-                    time: appointment.time || "Unknown Time",
+                    time: time,
                     status: appointment.status || "Pending",
                     price: appointment.price || appointment.amount || "₹0"
                   });
@@ -168,6 +186,10 @@ const sampleServiceImages = [
   { url: "/lovable-uploads/1cc0e11a-9d93-4eed-8d02-59aa9a487c33.png", title: "Complete Service" },
   { url: "/lovable-uploads/cb6a4ec8-b918-4978-b763-593612f03b52.png", title: "Oil Change Service" },
   { url: "/lovable-uploads/fa60b102-82f0-4fd8-83f2-1528bdb868c9.png", title: "Suspension Check" },
+  { url: "/lovable-uploads/eb72945f-4416-4bc4-8821-069c1dfc09a3.png", title: "Engine Diagnostics" },
+  { url: "/lovable-uploads/d0a4d9d1-872c-4f61-adb8-0db20a0b2d8a.png", title: "Wheel Alignment" },
+  { url: "/lovable-uploads/c318312a-0ca3-48b4-96e1-0f056e2594a3.png", title: "Battery Check" },
+  { url: "/lovable-uploads/9ffd3bf0-74d9-4bb3-b059-5c892667b62b.png", title: "Vehicle Inspection" },
 ];
 
 interface RegisteredUser {
@@ -235,11 +257,23 @@ const getAllRegisteredUsers = (): RegisteredUser[] => {
   return sampleData;
 };
 
+interface EditAppointmentData {
+  id: string | number;
+  customer: string;
+  vehicle: string;
+  service: string;
+  date: string;
+  time: string;
+  status: string;
+  price: string;
+}
+
 const Admin = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isImageUploadDialogOpen, setIsImageUploadDialogOpen] = useState(false);
+  const [isEditAppointmentDialogOpen, setIsEditAppointmentDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [customers, setCustomers] = useState<RegisteredUser[]>([]);
@@ -250,6 +284,7 @@ const Admin = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadImageTitle, setUploadImageTitle] = useState("");
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
+  const [editAppointment, setEditAppointment] = useState<EditAppointmentData | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -274,19 +309,85 @@ const Admin = () => {
   }, [navigate]);
   
   const sendServiceReminder = () => {
+    if (!selectedCustomerId) {
+      toast({
+        title: "Error",
+        description: "Please select a customer",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsReminderDialogOpen(false);
     toast({
       title: "Reminder sent",
-      description: "Service reminder has been sent to the customer",
+      description: `Service reminder has been sent to ${selectedCustomer}`,
     });
+    
+    try {
+      const userData = localStorage.getItem(`userData_${selectedCustomerId}`);
+      if (userData) {
+        const parsedUserData = JSON.parse(userData);
+        
+        if (!parsedUserData.notifications) {
+          parsedUserData.notifications = [];
+        }
+        
+        const newNotification = {
+          id: parsedUserData.notifications.length > 0 ? 
+               Math.max(...parsedUserData.notifications.map((n: any) => n.id)) + 1 : 1,
+          message: `Reminder: Your vehicle is due for service soon`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        };
+        
+        parsedUserData.notifications.push(newNotification);
+        localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
+      }
+    } catch (error) {
+      console.error("Error updating user notifications:", error);
+    }
   };
   
   const generateInvoice = () => {
+    if (!selectedCustomerId) {
+      toast({
+        title: "Error",
+        description: "Please select a customer",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsInvoiceDialogOpen(false);
     toast({
       title: "Invoice generated",
-      description: "Invoice has been generated and sent to the customer",
+      description: `Invoice has been generated and sent to ${selectedCustomer}`,
     });
+    
+    try {
+      const userData = localStorage.getItem(`userData_${selectedCustomerId}`);
+      if (userData) {
+        const parsedUserData = JSON.parse(userData);
+        
+        if (!parsedUserData.notifications) {
+          parsedUserData.notifications = [];
+        }
+        
+        const newNotification = {
+          id: parsedUserData.notifications.length > 0 ? 
+               Math.max(...parsedUserData.notifications.map((n: any) => n.id)) + 1 : 1,
+          message: `New invoice has been generated for your recent service`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        };
+        
+        parsedUserData.notifications.push(newNotification);
+        localStorage.setItem(`userData_${selectedCustomerId}`, JSON.stringify(parsedUserData));
+      }
+    } catch (error) {
+      console.error("Error updating user notifications:", error);
+    }
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -452,6 +553,92 @@ const Admin = () => {
     }
   };
 
+  const handleOpenEditAppointment = (appointment: Appointment) => {
+    setEditAppointment({
+      id: appointment.id,
+      customer: appointment.customer,
+      vehicle: typeof appointment.vehicle === 'string' ? appointment.vehicle : "",
+      service: typeof appointment.services === 'string' ? appointment.services : Array.isArray(appointment.services) ? appointment.services.join(", ") : "",
+      date: appointment.date,
+      time: appointment.time,
+      status: appointment.status,
+      price: appointment.price || "₹0",
+    });
+    setIsEditAppointmentDialogOpen(true);
+  };
+
+  const handleSaveEditedAppointment = () => {
+    if (!editAppointment) return;
+
+    const updatedAppointments = appointments.map(appointment => {
+      if (appointment.id === editAppointment.id) {
+        return {
+          ...appointment,
+          vehicle: editAppointment.vehicle,
+          services: editAppointment.service,
+          date: editAppointment.date,
+          time: editAppointment.time,
+          status: editAppointment.status,
+          price: editAppointment.price
+        };
+      }
+      return appointment;
+    });
+    
+    setAppointments(updatedAppointments);
+    
+    try {
+      localStorage.setItem("allAppointments", JSON.stringify(updatedAppointments));
+      
+      // Update in user data if possible
+      const appointment = appointments.find(a => a.id === editAppointment.id);
+      if (appointment && appointment.customerId) {
+        const userData = localStorage.getItem(`userData_${appointment.customerId}`);
+        if (userData) {
+          const parsedUserData = JSON.parse(userData);
+          const sources = ['appointments', 'upcomingServices'];
+          
+          sources.forEach(sourceKey => {
+            if (Array.isArray(parsedUserData[sourceKey])) {
+              parsedUserData[sourceKey] = parsedUserData[sourceKey].map((a: any, index: number) => {
+                if (`${appointment.customerId}_${index}` === editAppointment.id) {
+                  return {
+                    ...a,
+                    vehicle: editAppointment.vehicle,
+                    service: editAppointment.service,
+                    services: editAppointment.service,
+                    date: editAppointment.date,
+                    time: editAppointment.time,
+                    status: editAppointment.status,
+                    price: editAppointment.price
+                  };
+                }
+                return a;
+              });
+            }
+          });
+          
+          localStorage.setItem(`userData_${appointment.customerId}`, JSON.stringify(parsedUserData));
+        }
+      }
+      
+      setIsEditAppointmentDialogOpen(false);
+      setEditAppointment(null);
+      
+      toast({
+        title: "Appointment updated",
+        description: "The appointment has been successfully updated",
+      });
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update appointment",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getTodayAppointments = () => {
     const today = new Date().toISOString().split('T')[0];
     console.log("Today's date:", today);
@@ -486,6 +673,14 @@ const Admin = () => {
     
     console.log("Today's appointments:", todayAppointments);
     return todayAppointments;
+  };
+
+  const handleInvoiceClick = (appointment: Appointment) => {
+    setSelectedCustomer(appointment.customer);
+    if (appointment.customerId) {
+      setSelectedCustomerId(String(appointment.customerId));
+    }
+    setIsInvoiceDialogOpen(true);
   };
 
   return (
@@ -607,20 +802,36 @@ const Admin = () => {
                               <td className="py-3 px-4">{appointment.services}</td>
                               <td className="py-3 px-4">{appointment.time}</td>
                               <td className="py-3 px-4">
-                                <Badge variant={appointment.status === "Confirmed" ? "default" : "secondary"}>
+                                <Badge variant={
+                                  appointment.status === "Confirmed" ? "default" : 
+                                  appointment.status === "Completed" ? "secondary" : 
+                                  appointment.status === "Cancelled" ? "destructive" : 
+                                  "outline"
+                                }>
                                   {appointment.status}
                                 </Badge>
                               </td>
                               <td className="py-3 px-4">
                                 <div className="flex space-x-2">
-                                  <Button variant="outline" size="sm" onClick={() => setIsInvoiceDialogOpen(true)}>
-                                    Invoice
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleInvoiceClick(appointment)}
+                                  >
+                                    <Receipt className="h-4 w-4 mr-1" /> Invoice
                                   </Button>
-                                  <Button variant="outline" size="sm" onClick={() => {
-                                    setSelectedCustomer(appointment.customer);
-                                    setIsReminderDialogOpen(true);
-                                  }}>
-                                    Remind
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => {
+                                      setSelectedCustomer(appointment.customer);
+                                      if (appointment.customerId) {
+                                        setSelectedCustomerId(String(appointment.customerId));
+                                      }
+                                      setIsReminderDialogOpen(true);
+                                    }}
+                                  >
+                                    <Bell className="h-4 w-4 mr-1" /> Remind
                                   </Button>
                                 </div>
                               </td>
@@ -773,14 +984,19 @@ const Admin = () => {
                               </td>
                               <td className="py-3 px-4">
                                 <div className="flex space-x-2">
-                                  <Button variant="outline" size="sm">
-                                    Edit
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => handleOpenEditAppointment(appointment)}
+                                  >
+                                    <Edit className="h-4 w-4 mr-1" /> Edit
                                   </Button>
-                                  <Button variant="outline" size="sm" onClick={() => {
-                                    setSelectedCustomer(appointment.customer);
-                                    setIsInvoiceDialogOpen(true);
-                                  }}>
-                                    Invoice
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleInvoiceClick(appointment)}
+                                  >
+                                    <Receipt className="h-4 w-4 mr-1" /> Invoice
                                   </Button>
                                 </div>
                               </td>
@@ -912,8 +1128,16 @@ const Admin = () => {
                     Customer
                   </Label>
                   <div className="col-span-3">
-                    <Select value={selectedCustomer ? "selected" : ""}>
-                      <SelectTrigger>
+                    <Select 
+                      value={selectedCustomerId} 
+                      onValueChange={(value) => {
+                        const customer = customers.find(c => String(c.id) === value);
+                        if (customer) {
+                          handleSelectCustomer(customer.id, customer.name);
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="customer">
                         <SelectValue placeholder={selectedCustomer || "Select customer"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -921,7 +1145,6 @@ const Admin = () => {
                           <SelectItem 
                             key={customer.id} 
                             value={String(customer.id)}
-                            onClick={() => handleSelectCustomer(customer.id, customer.name)}
                           >
                             {customer.name}
                           </SelectItem>
@@ -981,12 +1204,31 @@ const Admin = () => {
                   <Label htmlFor="invoice-customer" className="text-right">
                     Customer
                   </Label>
-                  <Input
-                    id="invoice-customer"
-                    value={selectedCustomer}
-                    readOnly
-                    className="col-span-3"
-                  />
+                  <div className="col-span-3">
+                    <Select 
+                      value={selectedCustomerId} 
+                      onValueChange={(value) => {
+                        const customer = customers.find(c => String(c.id) === value);
+                        if (customer) {
+                          handleSelectCustomer(customer.id, customer.name);
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="invoice-customer">
+                        <SelectValue placeholder={selectedCustomer || "Select customer"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem 
+                            key={customer.id} 
+                            value={String(customer.id)}
+                          >
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="invoice-service" className="text-right">
@@ -1040,8 +1282,16 @@ const Admin = () => {
                     Customer
                   </Label>
                   <div className="col-span-3">
-                    <Select value={selectedCustomer ? "selected" : ""}>
-                      <SelectTrigger>
+                    <Select 
+                      value={selectedCustomerId} 
+                      onValueChange={(value) => {
+                        const customer = customers.find(c => String(c.id) === value);
+                        if (customer) {
+                          handleSelectCustomer(customer.id, customer.name);
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="image-customer">
                         <SelectValue placeholder={selectedCustomer || "Select customer"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -1049,7 +1299,6 @@ const Admin = () => {
                           <SelectItem 
                             key={customer.id} 
                             value={String(customer.id)}
-                            onClick={() => handleSelectCustomer(customer.id, customer.name)}
                           >
                             {customer.name}
                           </SelectItem>
@@ -1135,6 +1384,116 @@ const Admin = () => {
             </DialogContent>
           </Dialog>
 
+          <Dialog open={isEditAppointmentDialogOpen} onOpenChange={setIsEditAppointmentDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Edit Appointment</DialogTitle>
+                <DialogDescription>
+                  Update appointment details.
+                </DialogDescription>
+              </DialogHeader>
+              {editAppointment && (
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-customer" className="text-right">
+                      Customer
+                    </Label>
+                    <Input
+                      id="edit-customer"
+                      value={editAppointment.customer}
+                      readOnly
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-vehicle" className="text-right">
+                      Vehicle
+                    </Label>
+                    <Input
+                      id="edit-vehicle"
+                      value={editAppointment.vehicle}
+                      onChange={(e) => setEditAppointment({...editAppointment, vehicle: e.target.value})}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-service" className="text-right">
+                      Service
+                    </Label>
+                    <Input
+                      id="edit-service"
+                      value={editAppointment.service}
+                      onChange={(e) => setEditAppointment({...editAppointment, service: e.target.value})}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-date" className="text-right">
+                      Date
+                    </Label>
+                    <Input
+                      id="edit-date"
+                      type="date"
+                      value={editAppointment.date}
+                      onChange={(e) => setEditAppointment({...editAppointment, date: e.target.value})}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-time" className="text-right">
+                      Time
+                    </Label>
+                    <Input
+                      id="edit-time"
+                      type="time"
+                      value={editAppointment.time !== "Unknown Time" ? editAppointment.time : ""}
+                      onChange={(e) => setEditAppointment({...editAppointment, time: e.target.value})}
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-status" className="text-right">
+                      Status
+                    </Label>
+                    <Select 
+                      value={editAppointment.status} 
+                      onValueChange={(value) => setEditAppointment({...editAppointment, status: value})}
+                    >
+                      <SelectTrigger id="edit-status" className="col-span-3">
+                        <SelectValue placeholder={editAppointment.status} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Confirmed">Confirmed</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="Cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit-price" className="text-right">
+                      Price
+                    </Label>
+                    <Input
+                      id="edit-price"
+                      value={editAppointment.price}
+                      onChange={(e) => setEditAppointment({...editAppointment, price: e.target.value})}
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditAppointmentDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" onClick={handleSaveEditedAppointment}>
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
       <Footer />
