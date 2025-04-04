@@ -48,6 +48,8 @@ interface AppointmentData {
   service: string;
   status: string;
   amount: string;
+  vehicleId?: string | number;
+  time?: string;
 }
 
 interface NotificationData {
@@ -109,6 +111,13 @@ const Dashboard = () => {
   const [newService, setNewService] = useState({
     vehicleId: "",
     serviceTypes: [] as string[],
+    date: "",
+    time: "10:00"
+  });
+  const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentData | null>(null);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState({
     date: "",
     time: "10:00"
   });
@@ -381,6 +390,108 @@ const Dashboard = () => {
     setIsViewImageOpen(true);
   };
 
+  const handleRescheduleClick = (appointment: AppointmentData) => {
+    setSelectedAppointment(appointment);
+    // Initialize with current appointment values
+    setRescheduleData({
+      date: appointment.date,
+      time: appointment.time || "10:00"
+    });
+    setIsRescheduleDialogOpen(true);
+  };
+
+  const handleCancelClick = (appointment: AppointmentData) => {
+    setSelectedAppointment(appointment);
+    setIsCancelDialogOpen(true);
+  };
+
+  const handleRescheduleSubmit = () => {
+    if (!selectedAppointment || !rescheduleData.date) {
+      toast({
+        title: "Missing information",
+        description: "Please select a valid date",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const updatedUserData = { ...userData };
+    
+    if (updatedUserData.upcomingServices) {
+      updatedUserData.upcomingServices = updatedUserData.upcomingServices.map(service => 
+        service.id === selectedAppointment.id ? 
+          { ...service, date: rescheduleData.date, time: rescheduleData.time } : 
+          service
+      );
+    }
+
+    const newNotification = {
+      id: (notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1),
+      message: `Your ${selectedAppointment.service} appointment has been rescheduled to ${new Date(rescheduleData.date).toLocaleDateString()} at ${rescheduleData.time}`,
+      date: new Date().toISOString().split('T')[0],
+      read: false
+    };
+
+    updatedUserData.notifications = [
+      ...(updatedUserData.notifications || []),
+      newNotification
+    ];
+
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (currentUserId) {
+      localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+      setNotifications([...notifications, newNotification]);
+    }
+
+    setIsRescheduleDialogOpen(false);
+    setSelectedAppointment(null);
+
+    toast({
+      title: "Appointment rescheduled",
+      description: `Your appointment has been rescheduled to ${new Date(rescheduleData.date).toLocaleDateString()} at ${rescheduleData.time}`
+    });
+  };
+
+  const handleCancelAppointment = () => {
+    if (!selectedAppointment) return;
+
+    const updatedUserData = { ...userData };
+    
+    if (updatedUserData.upcomingServices) {
+      updatedUserData.upcomingServices = updatedUserData.upcomingServices.filter(
+        service => service.id !== selectedAppointment.id
+      );
+    }
+
+    const newNotification = {
+      id: (notifications.length > 0 ? Math.max(...notifications.map(n => n.id)) + 1 : 1),
+      message: `Your ${selectedAppointment.service} appointment has been cancelled`,
+      date: new Date().toISOString().split('T')[0],
+      read: false
+    };
+
+    updatedUserData.notifications = [
+      ...(updatedUserData.notifications || []),
+      newNotification
+    ];
+
+    const currentUserId = localStorage.getItem("currentUserId");
+    if (currentUserId) {
+      localStorage.setItem(`userData_${currentUserId}`, JSON.stringify(updatedUserData));
+      setUserData(updatedUserData);
+      setNotifications([...notifications, newNotification]);
+    }
+
+    setIsCancelDialogOpen(false);
+    setSelectedAppointment(null);
+
+    toast({
+      title: "Appointment cancelled",
+      description: `Your ${selectedAppointment.service} appointment has been cancelled`
+    });
+  };
+
   const hasUpcomingServices = () => {
     return userData.upcomingServices && userData.upcomingServices.length > 0;
   };
@@ -440,7 +551,12 @@ const Dashboard = () => {
                           })}
                         </p>
                         <p className="mt-2 font-semibold text-carservice-blue">{userData.upcomingServices![0].amount}</p>
-                        <Button variant="outline" size="sm" className="mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-4"
+                          onClick={() => handleRescheduleClick(userData.upcomingServices![0])}
+                        >
                           Reschedule
                         </Button>
                       </div>
@@ -679,14 +795,23 @@ const Dashboard = () => {
                                   month: "long",
                                   day: "numeric"
                                 })}
+                                {service.time && ` at ${service.time}`}
                               </p>
                               <p className="mt-1 font-medium text-carservice-blue">{service.amount}</p>
                             </div>
                             <div className="flex space-x-2">
-                              <Button variant="outline" size="sm">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleRescheduleClick(service)}
+                              >
                                 Reschedule
                               </Button>
-                              <Button variant="outline" size="sm">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleCancelClick(service)}
+                              >
                                 Cancel
                               </Button>
                             </div>
@@ -697,7 +822,12 @@ const Dashboard = () => {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6">
                       <p className="text-gray-500 mb-4">No upcoming appointments</p>
-                      <Button variant="outline">Book a Service</Button>
+                      <Button 
+                        variant="outline"
+                        onClick={() => setIsBookServiceOpen(true)}
+                      >
+                        Book a Service
+                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -790,437 +920,3 @@ const Dashboard = () => {
                                 })}
                               </p>
                             </div>
-                            {!notification.read && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => markAsRead(notification.id)}
-                              >
-                                Mark as read
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-6">
-                      <p className="text-gray-500">No notifications yet</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="profile" className="space-y-6">
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle>Personal Information</CardTitle>
-                  <CardDescription>Manage your account details</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium">Full Name</label>
-                        <p className="mt-1">{userData.fullName || "Not provided"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Email</label>
-                        <p className="mt-1">{userData.email || "Not provided"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Phone Number</label>
-                        <p className="mt-1">{userData.phone ? `+91 ${userData.phone}` : "Not provided"}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium">Address</label>
-                        <p className="mt-1">{userData.address || "Not provided"}</p>
-                      </div>
-                    </div>
-                    <Button 
-                      variant="outline"
-                      onClick={() => setIsUpdateProfileOpen(true)}
-                    >
-                      Edit Information
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle>Security</CardTitle>
-                  <CardDescription>Manage your password and account security</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline">
-                    Change Password
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="service-images" className="space-y-6">
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle>Service Progress Images</CardTitle>
-                  <CardDescription>View progress photos of your vehicle service</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {hasServiceImages() ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {userData.serviceImages!.map((image, index) => (
-                        <div 
-                          key={index} 
-                          className="border rounded-lg overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow"
-                          onClick={() => viewImage(image)}
-                        >
-                          <img 
-                            src={image.url} 
-                            alt={image.title} 
-                            className="w-full h-40 object-cover"
-                          />
-                          <div className="p-3 bg-gray-50">
-                            <h4 className="font-medium">{image.title}</h4>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <Image className="h-16 w-16 text-gray-300 mb-4" />
-                      <p className="text-gray-500 mb-2">No service images available yet</p>
-                      <p className="text-sm text-gray-400 mb-6 text-center max-w-md">
-                        Service progress images will be uploaded by our technicians during your vehicle service
-                      </p>
-                      <Button 
-                        variant="outline"
-                        onClick={() => setIsImageUploadOpen(true)}
-                      >
-                        View Demo Images
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
-
-      <Dialog open={isAddVehicleDialogOpen} onOpenChange={setIsAddVehicleDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Add New Vehicle</DialogTitle>
-            <DialogDescription>
-              Add your vehicle details to manage services
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="make" className="text-right">
-                Make
-              </Label>
-              <div className="col-span-3">
-                <Select 
-                  onValueChange={(value) => setNewVehicle({...newVehicle, make: value})}
-                  value={newVehicle.make}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select car make" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {carMakes.map((make) => (
-                      <SelectItem key={make} value={make}>{make}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="model" className="text-right">
-                Model
-              </Label>
-              <Input
-                id="model"
-                value={newVehicle.model}
-                onChange={(e) => setNewVehicle({...newVehicle, model: e.target.value})}
-                className="col-span-3"
-                placeholder="e.g. Swift, i20, Nexon"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="year" className="text-right">
-                Year
-              </Label>
-              <Input
-                id="year"
-                type="number"
-                value={newVehicle.year}
-                onChange={(e) => setNewVehicle({...newVehicle, year: parseInt(e.target.value)})}
-                className="col-span-3"
-                min={1990}
-                max={new Date().getFullYear()}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="licensePlate" className="text-right">
-                License Plate
-              </Label>
-              <Input
-                id="licensePlate"
-                value={newVehicle.licensePlate}
-                onChange={(e) => setNewVehicle({...newVehicle, licensePlate: e.target.value})}
-                className="col-span-3"
-                placeholder="e.g. KA01AB1234"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddVehicleDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddVehicle}>Add Vehicle</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isUpdateProfileOpen} onOpenChange={setIsUpdateProfileOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Update Profile</DialogTitle>
-            <DialogDescription>
-              Update your personal information
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="fullName" className="text-right">
-                Full Name
-              </Label>
-              <Input
-                id="fullName"
-                value={updatedUserData.fullName}
-                onChange={(e) => setUpdatedUserData({...updatedUserData, fullName: e.target.value})}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={updatedUserData.email}
-                onChange={(e) => setUpdatedUserData({...updatedUserData, email: e.target.value})}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">
-                Phone
-              </Label>
-              <Input
-                id="phone"
-                value={updatedUserData.phone}
-                onChange={(e) => setUpdatedUserData({...updatedUserData, phone: e.target.value})}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Address
-              </Label>
-              <Input
-                id="address"
-                value={updatedUserData.address}
-                onChange={(e) => setUpdatedUserData({...updatedUserData, address: e.target.value})}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUpdateProfileOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateProfile}>Update Profile</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isImageUploadOpen} onOpenChange={setIsImageUploadOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Service Progress Images</DialogTitle>
-            <DialogDescription>
-              View real-time updates from your mechanic
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex justify-center items-center h-40 border-2 border-dashed rounded-lg mb-4">
-              <div className="text-center">
-                <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-500">Demo images will be shown</p>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsImageUploadOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleImageUpload}>View Demo Images</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isViewImageOpen} onOpenChange={setIsViewImageOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>{selectedImage?.title || "Service Image"}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4 flex justify-center">
-            {selectedImage && (
-              <img 
-                src={selectedImage.url} 
-                alt={selectedImage.title} 
-                className="max-h-[400px] object-contain rounded-md"
-              />
-            )}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setIsViewImageOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isBookServiceOpen} onOpenChange={setIsBookServiceOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Book a Service</DialogTitle>
-            <DialogDescription>
-              Schedule a service appointment for your vehicle
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {userData.vehicles && userData.vehicles.length > 0 ? (
-              <>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="vehicle" className="text-right">
-                    Vehicle
-                  </Label>
-                  <div className="col-span-3">
-                    <Select 
-                      value={newService.vehicleId}
-                      onValueChange={(value) => setNewService({...newService, vehicleId: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your vehicle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {userData.vehicles.map((vehicle) => (
-                          <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                            {vehicle.year} {vehicle.make} {vehicle.model} - {vehicle.licensePlate}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-start gap-4">
-                  <Label htmlFor="service" className="text-right pt-2">
-                    Service Type
-                  </Label>
-                  <div className="col-span-3">
-                    <div className="space-y-2">
-                      {serviceTypes.map((service) => (
-                        <div key={service} className="flex items-center space-x-2">
-                          <Checkbox 
-                            id={`service-${service}`}
-                            checked={newService.serviceTypes.includes(service)}
-                            onCheckedChange={() => handleServiceSelection(service)}
-                          />
-                          <Label 
-                            htmlFor={`service-${service}`}
-                            className="cursor-pointer"
-                          >
-                            {service}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                    {newService.serviceTypes.length === 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Please select at least one service
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="date" className="text-right">
-                    Date
-                  </Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    className="col-span-3"
-                    value={newService.date}
-                    onChange={(e) => setNewService({...newService, date: e.target.value})}
-                    min={new Date().toISOString().split('T')[0]} // Can't select dates in the past
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="time" className="text-right">
-                    Time
-                  </Label>
-                  <Input
-                    id="time"
-                    type="time"
-                    className="col-span-3"
-                    value={newService.time}
-                    onChange={(e) => setNewService({...newService, time: e.target.value})}
-                  />
-                </div>
-                {newService.serviceTypes.length > 0 && (
-                  <div className="pl-4 pt-2">
-                    <p className="text-sm font-medium">Selected services:</p>
-                    <ul className="list-disc pl-5 text-sm text-muted-foreground">
-                      {newService.serviceTypes.map(service => (
-                        <li key={service}>{service}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="py-4 text-center">
-                <p className="text-gray-500 mb-4">You need to add a vehicle before booking a service</p>
-                <Button 
-                  onClick={() => {
-                    setIsBookServiceOpen(false);
-                    setIsAddVehicleDialogOpen(true);
-                  }}
-                >
-                  Add Vehicle
-                </Button>
-              </div>
-            )}
-          </div>
-          {userData.vehicles && userData.vehicles.length > 0 && (
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsBookServiceOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleBookService}>Book Service{newService.serviceTypes.length > 1 ? 's' : ''}</Button>
-            </DialogFooter>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Footer />
-    </div>
-  );
-};
-
-export default Dashboard;
