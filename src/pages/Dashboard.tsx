@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Calendar, CarFront, FileText, Settings, User, Upload, Image } from "lucide-react";
+import { Bell, Calendar, CarFront, FileText, Settings, User, Upload, Image, Tool } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ServiceProgress, ServiceTask } from "@/components/ServiceProgress";
 
 interface UserData {
   id: string;
@@ -24,6 +25,12 @@ interface UserData {
   serviceHistory?: ServiceData[];
   notifications?: NotificationData[];
   serviceImages?: ServiceImage[];
+  serviceProgress?: {
+    appointmentId: string;
+    vehicleId: string;
+    progress: number;
+    tasks: ServiceTask[];
+  }[];
 }
 
 interface Vehicle {
@@ -86,7 +93,8 @@ const Dashboard = () => {
     upcomingServices: [],
     serviceHistory: [],
     notifications: [],
-    serviceImages: []
+    serviceImages: [],
+    serviceProgress: []
   });
   const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false);
   const [newVehicle, setNewVehicle] = useState<Omit<Vehicle, "id">>({
@@ -121,7 +129,14 @@ const Dashboard = () => {
     date: "",
     time: "10:00"
   });
-  
+  const [activeServiceProgress, setActiveServiceProgress] = useState<{
+    appointmentId: string;
+    vehicleId: string;
+    progress: number;
+    tasks: ServiceTask[];
+    vehicleName: string;
+  } | null>(null);
+
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -151,11 +166,23 @@ const Dashboard = () => {
       parsedData.serviceHistory = parsedData.serviceHistory || [];
       parsedData.notifications = parsedData.notifications || [];
       parsedData.serviceImages = parsedData.serviceImages || [];
+      parsedData.serviceProgress = parsedData.serviceProgress || [];
       
       setUserData(parsedData);
       setUpdatedUserData(parsedData);
       
       setNotifications(parsedData.notifications || []);
+      
+      if (parsedData.serviceProgress && parsedData.serviceProgress.length > 0) {
+        const activeProgress = parsedData.serviceProgress[0];
+        const vehicle = parsedData.vehicles.find(v => v.id.toString() === activeProgress.vehicleId.toString());
+        if (vehicle) {
+          setActiveServiceProgress({
+            ...activeProgress,
+            vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+          });
+        }
+      }
     } else {
       toast({
         title: "Error loading profile",
@@ -514,7 +541,7 @@ const Dashboard = () => {
           </div>
 
           <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid grid-cols-5 w-full max-w-3xl">
+            <TabsList className="grid grid-cols-6 w-full max-w-3xl">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Overview
               </TabsTrigger>
@@ -523,6 +550,9 @@ const Dashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="appointments" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" /> Appointments
+              </TabsTrigger>
+              <TabsTrigger value="service-progress" className="flex items-center gap-2">
+                <Tool className="h-4 w-4" /> Progress
               </TabsTrigger>
               <TabsTrigger value="notifications" className="flex items-center gap-2">
                 <Bell className="h-4 w-4" /> Notifications
@@ -614,49 +644,23 @@ const Dashboard = () => {
                     <CardTitle className="text-lg">Service Progress</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {hasServiceImages() ? (
-                      <div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {userData.serviceImages!.slice(0, 2).map((img, index) => (
-                            <div 
-                              key={index} 
-                              className="relative cursor-pointer" 
-                              onClick={() => viewImage(img)}
-                            >
-                              <img 
-                                src={img.url} 
-                                alt={img.title} 
-                                className="rounded-md w-full h-24 object-cover"
-                              />
-                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-1 rounded-b-md">
-                                <p className="text-xs text-white truncate">{img.title}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="mt-2 text-sm text-gray-500">
-                          Latest service progress photos
-                        </p>
-                        {userData.serviceImages!.length > 2 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="mt-2 w-full text-carservice-blue"
-                            onClick={() => setActiveTab("service-images")}
-                          >
-                            View all {userData.serviceImages!.length} images
-                          </Button>
-                        )}
-                      </div>
+                    {activeServiceProgress ? (
+                      <ServiceProgress 
+                        vehicleName={activeServiceProgress.vehicleName}
+                        progress={activeServiceProgress.progress}
+                        tasks={activeServiceProgress.tasks}
+                        appointmentId={activeServiceProgress.appointmentId}
+                      />
                     ) : (
                       <div className="flex flex-col items-center justify-center py-6">
-                        <p className="text-sm text-gray-500 mb-4">No service progress images yet</p>
+                        <p className="text-sm text-gray-500 mb-4">
+                          When your vehicle is being serviced, you'll see the progress updates here
+                        </p>
                         <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setIsImageUploadOpen(true)}
+                          variant="outline"
+                          onClick={() => setIsBookServiceOpen(true)}
                         >
-                          View Demo Images
+                          Book a Service
                         </Button>
                       </div>
                     )}
@@ -887,6 +891,35 @@ const Dashboard = () => {
                   </CardHeader>
                   <CardContent className="flex flex-col items-center justify-center py-6">
                     <p className="text-gray-500">Your completed services will appear here</p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="service-progress" className="space-y-6">
+              {activeServiceProgress ? (
+                <ServiceProgress 
+                  vehicleName={activeServiceProgress.vehicleName}
+                  progress={activeServiceProgress.progress}
+                  tasks={activeServiceProgress.tasks}
+                  appointmentId={activeServiceProgress.appointmentId}
+                />
+              ) : (
+                <Card className="shadow-md">
+                  <CardHeader>
+                    <CardTitle>Service Progress</CardTitle>
+                    <CardDescription>No active service in progress</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center justify-center py-6">
+                    <p className="text-gray-500 mb-4">
+                      When your vehicle is being serviced, you'll see the progress updates here
+                    </p>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsBookServiceOpen(true)}
+                    >
+                      Book a Service
+                    </Button>
                   </CardContent>
                 </Card>
               )}
