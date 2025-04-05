@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -84,6 +84,8 @@ const Admin = () => {
     title: "",
     url: ""
   });
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -334,13 +336,36 @@ const Admin = () => {
       title: "",
       url: ""
     });
+    setImagePreview(null);
     setIsImageDialogOpen(true);
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Create preview URL for selected image
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const saveImageData = () => {
     if (!selectedServiceProgress || !selectedTask) return;
     
-    const imageUrl = newImageData.url || "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60";
+    if (!newImageData.title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Please provide a title for the image",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Use either uploaded image or fallback URL
+    const imageUrl = imagePreview || newImageData.url || "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60";
     
     const tasks = [...selectedServiceProgress.tasks];
     const taskIndex = tasks.findIndex(t => t.id === selectedTask.id);
@@ -365,6 +390,7 @@ const Admin = () => {
       });
       
       setIsImageDialogOpen(false);
+      setImagePreview(null);
       
       toast({
         title: "Image added",
@@ -970,33 +996,84 @@ const Admin = () => {
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="imageTitle">Image Title</Label>
+              <Label htmlFor="imageTitle" className="text-sm font-medium">Image Title</Label>
               <Input
                 id="imageTitle"
                 value={newImageData.title}
                 onChange={(e) => setNewImageData({ ...newImageData, title: e.target.value })}
                 placeholder="e.g., Oil Filter Replacement"
+                className="w-full"
               />
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="imageUrl">Image URL (optional)</Label>
+              <Label htmlFor="imageUpload" className="text-sm font-medium">Upload Image</Label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center">
+                <Input
+                  ref={fileInputRef}
+                  id="imageUpload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="sr-only"
+                />
+                
+                {imagePreview ? (
+                  <div className="relative w-full mb-4">
+                    <img 
+                      src={imagePreview}
+                      alt="Preview" 
+                      className="w-full h-48 object-contain rounded-md"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2 bg-white"
+                      onClick={() => {
+                        setImagePreview(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-10 w-10 text-gray-400 mb-2" />
+                    <Button 
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Select Image
+                    </Button>
+                  </>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  You can also provide a URL instead
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="imageUrl" className="text-sm font-medium">Image URL (optional)</Label>
               <Input
                 id="imageUrl"
                 value={newImageData.url}
                 onChange={(e) => setNewImageData({ ...newImageData, url: e.target.value })}
-                placeholder="URL of image (demo will use placeholder if empty)"
+                placeholder="URL of image (optional)"
+                disabled={!!imagePreview}
               />
-            </div>
-            
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center">
-              <Upload className="h-10 w-10 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-500">Demo Mode: Placeholder images will be used</p>
+              {imagePreview && (
+                <p className="text-xs text-gray-500">URL input is disabled when an image is uploaded</p>
+              )}
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsImageDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setIsImageDialogOpen(false);
+              setImagePreview(null);
+            }}>
               Cancel
             </Button>
             <Button onClick={saveImageData}>
