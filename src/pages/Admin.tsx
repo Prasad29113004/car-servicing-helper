@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
@@ -13,6 +12,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import RemindersSection from "@/components/admin/RemindersSection";
+import ImageManagement from "@/components/admin/ImageManagement";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -812,10 +812,7 @@ const Admin = () => {
 
             {activeTab === "images" && (
               <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-lg font-semibold mb-4">Service Images</h2>
-                <p className="text-gray-500 mb-4">Upload and manage service progress images</p>
-                
-                <p className="text-gray-500">Please use the Service Progress section to manage images for specific service tasks</p>
+                <ImageManagement />
               </div>
             )}
           </div>
@@ -1081,11 +1078,11 @@ const Admin = () => {
                     </Button>
                   </div>
                 ) : (
-                  <div className="w-full flex flex-col items-center gap-2">
+                  <div className="w-full flex flex-col items-center gap-2 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <Upload className="h-10 w-10 text-gray-400 mb-2" />
                     <Button 
                       variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
+                      type="button"
                       className="w-full"
                     >
                       Select Image
@@ -1121,7 +1118,10 @@ const Admin = () => {
             }}>
               Cancel
             </Button>
-            <Button onClick={saveImageData} disabled={!imagePreview && !newImageData.url && !newImageData.title}>
+            <Button 
+              onClick={saveImageData} 
+              disabled={(!imagePreview && !newImageData.url) || !newImageData.title.trim()}
+            >
               Add Image
             </Button>
           </DialogFooter>
