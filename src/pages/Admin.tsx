@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
@@ -85,6 +84,7 @@ const Admin = () => {
     url: ""
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -344,7 +344,8 @@ const Admin = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Create preview URL for selected image
+    setImageFile(file);
+    
     const reader = new FileReader();
     reader.onload = () => {
       setImagePreview(reader.result as string);
@@ -364,8 +365,11 @@ const Admin = () => {
       return;
     }
     
-    // Use either uploaded image or fallback URL
-    const imageUrl = imagePreview || newImageData.url || "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60";
+    let imageUrl = newImageData.url || "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60";
+    
+    if (imageFile && imagePreview) {
+      imageUrl = imagePreview;
+    }
     
     const tasks = [...selectedServiceProgress.tasks];
     const taskIndex = tasks.findIndex(t => t.id === selectedTask.id);
@@ -391,6 +395,7 @@ const Admin = () => {
       
       setIsImageDialogOpen(false);
       setImagePreview(null);
+      setImageFile(null);
       
       toast({
         title: "Image added",
@@ -985,7 +990,14 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+      <Dialog open={isImageDialogOpen} onOpenChange={(open) => {
+        setIsImageDialogOpen(open);
+        if (!open) {
+          setImagePreview(null);
+          setImageFile(null);
+          setNewImageData({ title: "", url: "" });
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Add Image</DialogTitle>
@@ -1003,6 +1015,7 @@ const Admin = () => {
                 onChange={(e) => setNewImageData({ ...newImageData, title: e.target.value })}
                 placeholder="e.g., Oil Filter Replacement"
                 className="w-full"
+                required
               />
             </div>
             
@@ -1031,6 +1044,7 @@ const Admin = () => {
                       className="absolute top-2 right-2 bg-white"
                       onClick={() => {
                         setImagePreview(null);
+                        setImageFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
                       }}
                     >
@@ -1038,29 +1052,30 @@ const Admin = () => {
                     </Button>
                   </div>
                 ) : (
-                  <>
+                  <div className="w-full flex flex-col items-center gap-2">
                     <Upload className="h-10 w-10 text-gray-400 mb-2" />
                     <Button 
                       variant="outline"
                       onClick={() => fileInputRef.current?.click()}
+                      className="w-full"
                     >
                       Select Image
                     </Button>
-                  </>
+                  </div>
                 )}
-                <p className="text-xs text-gray-500 mt-2">
-                  You can also provide a URL instead
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  {imagePreview ? "Image selected" : "Click to browse or drop an image"}
                 </p>
               </div>
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="imageUrl" className="text-sm font-medium">Image URL (optional)</Label>
+              <Label htmlFor="imageUrl" className="text-sm font-medium">Image URL (alternative)</Label>
               <Input
                 id="imageUrl"
                 value={newImageData.url}
                 onChange={(e) => setNewImageData({ ...newImageData, url: e.target.value })}
-                placeholder="URL of image (optional)"
+                placeholder="URL of image (if not uploading)"
                 disabled={!!imagePreview}
               />
               {imagePreview && (
@@ -1073,10 +1088,11 @@ const Admin = () => {
             <Button variant="outline" onClick={() => {
               setIsImageDialogOpen(false);
               setImagePreview(null);
+              setImageFile(null);
             }}>
               Cancel
             </Button>
-            <Button onClick={saveImageData}>
+            <Button onClick={saveImageData} disabled={!imagePreview && !newImageData.url}>
               Add Image
             </Button>
           </DialogFooter>

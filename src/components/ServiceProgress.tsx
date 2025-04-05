@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Check, Clock, AlertCircle, Wrench, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +52,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
         </div>
         <CardDescription>Service progress tracking</CardDescription>
       </CardHeader>
+
       <CardContent>
         <div className="mb-4">
           <Progress value={progress} className="h-2" />
