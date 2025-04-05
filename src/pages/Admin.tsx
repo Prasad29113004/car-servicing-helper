@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Calendar, FileText, Bell, User, CarFront, Clock, ImageIcon, Tool, Upload, CheckCircle, CircleDashed, CircleDot } from "lucide-react";
+import { Calendar, FileText, Bell, User, CarFront, Clock, ImageIcon, Wrench, Upload, CheckCircle, CircleDashed, CircleDot } from "lucide-react";
 import { 
   Table, 
   TableBody, 
@@ -445,7 +446,7 @@ const Admin = () => {
                 setActiveTab("service-progress");
               }}
             >
-              <Tool className="h-5 w-5" />
+              <Wrench className="h-5 w-5" />
               <span>Service Progress</span>
             </a>
             <a 

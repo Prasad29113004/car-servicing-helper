@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Check, Clock, AlertCircle, Tool } from "lucide-react";
+import { Check, Clock, AlertCircle, Wrench } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -32,7 +32,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Tool className="h-5 w-5 text-gray-500" />
+            <Wrench className="h-5 w-5 text-gray-500" />
             <CardTitle className="text-lg">Your Car: {vehicleName}</CardTitle>
           </div>
           <span className={cn(
