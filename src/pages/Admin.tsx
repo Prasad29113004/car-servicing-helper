@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
@@ -140,6 +141,7 @@ const Admin = () => {
     
     setAllUsers(users);
     setAllAppointments(appointments);
+    console.info("All users:", users);
     console.info("All appointments:", appointments);
     
     const today = new Date().toISOString().split('T')[0];
@@ -281,6 +283,15 @@ const Admin = () => {
   const saveTaskData = () => {
     if (!selectedServiceProgress) return;
     
+    if (!newTaskData.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Task title is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const tasks = [...selectedServiceProgress.tasks];
     const now = new Date();
     const formattedDate = now.toLocaleDateString("en-IN", {
@@ -337,6 +348,10 @@ const Admin = () => {
       url: ""
     });
     setImagePreview(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setIsImageDialogOpen(true);
   };
 
@@ -365,10 +380,21 @@ const Admin = () => {
       return;
     }
     
-    let imageUrl = newImageData.url || "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60";
+    if (!imagePreview && !newImageData.url) {
+      toast({
+        title: "Image required",
+        description: "Please upload an image or provide an image URL",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    if (imageFile && imagePreview) {
+    let imageUrl = newImageData.url;
+    
+    if (imagePreview) {
       imageUrl = imagePreview;
+    } else if (!newImageData.url) {
+      imageUrl = "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=500&auto=format&fit=crop&q=60";
     }
     
     const tasks = [...selectedServiceProgress.tasks];
@@ -396,6 +422,7 @@ const Admin = () => {
       setIsImageDialogOpen(false);
       setImagePreview(null);
       setImageFile(null);
+      setNewImageData({ title: "", url: "" });
       
       toast({
         title: "Image added",
@@ -609,30 +636,32 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell>Prasad Nimje</TableCell>
-                      <TableCell>prasadnimje2@gmail.com</TableCell>
-                      <TableCell>7249439192</TableCell>
-                      <TableCell>1</TableCell>
-                      <TableCell>No services yet</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <a href="#" className="text-blue-600 hover:text-blue-800">View</a>
-                        <a href="#" className="text-blue-600 hover:text-blue-800">Edit</a>
-                        <a href="#" className="text-blue-600 hover:text-blue-800">Remind</a>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>Prasad Nimje</TableCell>
-                      <TableCell>prasadnimje786@gmail.com</TableCell>
-                      <TableCell>7249439192</TableCell>
-                      <TableCell>0</TableCell>
-                      <TableCell>No services yet</TableCell>
-                      <TableCell className="flex space-x-2">
-                        <a href="#" className="text-blue-600 hover:text-blue-800">View</a>
-                        <a href="#" className="text-blue-600 hover:text-blue-800">Edit</a>
-                        <a href="#" className="text-blue-600 hover:text-blue-800">Remind</a>
-                      </TableCell>
-                    </TableRow>
+                    {allUsers.length > 0 ? (
+                      allUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell>{user.fullName}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.phone}</TableCell>
+                          <TableCell>{user.vehicles?.length || 0}</TableCell>
+                          <TableCell>
+                            {user.upcomingServices && user.upcomingServices.length > 0 
+                              ? new Date(user.upcomingServices[0].date).toLocaleDateString() 
+                              : "No services yet"}
+                          </TableCell>
+                          <TableCell className="flex space-x-2">
+                            <a href="#" className="text-blue-600 hover:text-blue-800">View</a>
+                            <a href="#" className="text-blue-600 hover:text-blue-800">Edit</a>
+                            <a href="#" className="text-blue-600 hover:text-blue-800">Remind</a>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                          No customers found
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -777,7 +806,7 @@ const Admin = () => {
 
             {activeTab === "reminders" && (
               <div className="bg-white rounded-lg shadow-md p-6">
-                <RemindersSection />
+                <RemindersSection loadAllUsers={loadData} allUsers={allUsers} />
               </div>
             )}
 
@@ -1028,7 +1057,7 @@ const Admin = () => {
                   type="file"
                   accept="image/*"
                   onChange={handleFileChange}
-                  className="sr-only"
+                  className="hidden"
                 />
                 
                 {imagePreview ? (
@@ -1092,7 +1121,7 @@ const Admin = () => {
             }}>
               Cancel
             </Button>
-            <Button onClick={saveImageData} disabled={!imagePreview && !newImageData.url}>
+            <Button onClick={saveImageData} disabled={!imagePreview && !newImageData.url && !newImageData.title}>
               Add Image
             </Button>
           </DialogFooter>

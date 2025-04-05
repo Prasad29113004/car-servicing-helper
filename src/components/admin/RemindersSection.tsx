@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Table, 
@@ -49,7 +49,12 @@ interface ReminderData {
   lastReminded: string | null;
 }
 
-const RemindersSection = () => {
+interface RemindersSectionProps {
+  loadAllUsers?: () => void;
+  allUsers?: UserData[];
+}
+
+const RemindersSection = ({ loadAllUsers, allUsers: propAllUsers }: RemindersSectionProps) => {
   const [reminders, setReminders] = useState<ReminderData[]>([]);
   const [customers, setCustomers] = useState<UserData[]>([]);
   const [isNewReminderOpen, setIsNewReminderOpen] = useState(false);
@@ -66,9 +71,13 @@ const RemindersSection = () => {
 
   // Load customers and reminders data
   useEffect(() => {
-    loadCustomers();
+    if (propAllUsers) {
+      setCustomers(propAllUsers);
+    } else {
+      loadCustomers();
+    }
     loadReminders();
-  }, []);
+  }, [propAllUsers]);
 
   const loadCustomers = () => {
     const storedCustomers: UserData[] = [];
@@ -91,7 +100,7 @@ const RemindersSection = () => {
     }
     
     setCustomers(storedCustomers);
-    console.info("Loaded customers:", storedCustomers);
+    console.info("Loaded customers for reminders:", storedCustomers);
   };
 
   const loadReminders = () => {
@@ -227,6 +236,10 @@ const RemindersSection = () => {
       title: "Reminder sent",
       description: `Service reminder has been sent to ${selectedReminder.customerName}`
     });
+    
+    if (loadAllUsers) {
+      loadAllUsers();
+    }
   };
 
   return (
