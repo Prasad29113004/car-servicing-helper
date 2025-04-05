@@ -1,9 +1,10 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bell, Calendar, CarFront, FileText, Settings, User, Upload, Image, Tool } from "lucide-react";
+import { Bell, Calendar, CarFront, FileText, Settings, User, Upload, Image, Wrench } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
@@ -552,7 +553,7 @@ const Dashboard = () => {
                 <Calendar className="h-4 w-4" /> Appointments
               </TabsTrigger>
               <TabsTrigger value="service-progress" className="flex items-center gap-2">
-                <Tool className="h-4 w-4" /> Progress
+                <Wrench className="h-4 w-4" /> Progress
               </TabsTrigger>
               <TabsTrigger value="notifications" className="flex items-center gap-2">
                 <Bell className="h-4 w-4" /> Notifications
