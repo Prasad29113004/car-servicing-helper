@@ -79,55 +79,97 @@ const Dashboard = () => {
         
         if (userId) {
           // Get current user data
+          let userData: UserData;
           const storedData = localStorage.getItem(`userData_${userId}`);
+          
           if (storedData) {
-            const userData: UserData = JSON.parse(storedData);
-            
-            // Create vehicle if it doesn't exist already
-            const vehicleId = `v-${Date.now()}`;
-            const newVehicle = {
-              id: vehicleId,
-              year: booking.carYear || "",
-              make: booking.carMake || "",
-              model: booking.carModel || "",
-              licensePlate: booking.licensePlate || `TMP-${Math.floor(Math.random() * 10000)}`,
+            userData = JSON.parse(storedData);
+          } else {
+            // Create new user data if none exists
+            userData = {
+              id: userId,
+              fullName: booking.name || "Guest",
+              email: booking.email || "",
+              phone: booking.phone || "",
+              vehicles: [],
+              upcomingServices: [],
+              notifications: [],
+              serviceProgress: []
             };
-            
-            // Create service appointment
-            const appointmentId = `appt-${Date.now()}`;
-            const newAppointment = {
-              id: appointmentId,
-              service: booking.services.join(", "),
-              date: booking.date,
-              time: booking.time,
-              amount: booking.amount,
-              status: "Scheduled",
-              vehicleId: vehicleId,
-            };
-
-            // Update user data with new vehicle and appointment
-            const updatedUserData = {
-              ...userData,
-              vehicles: [...(userData.vehicles || []), newVehicle],
-              upcomingServices: [...(userData.upcomingServices || []), newAppointment],
-            };
-
-            // Save updated user data
-            localStorage.setItem(`userData_${userId}`, JSON.stringify(updatedUserData));
-            setUserData(updatedUserData);
-
-            // Display success toast
-            toast({
-              title: "Booking data processed",
-              description: "Your recent booking has been added to your account",
-            });
-
-            // Clear the booking data to prevent duplicates
-            localStorage.removeItem("lastBooking");
           }
+          
+          // Create vehicle if it doesn't exist
+          const vehicleId = `v-${Date.now()}`;
+          const newVehicle = {
+            id: vehicleId,
+            year: booking.carYear || "",
+            make: booking.carMake || "",
+            model: booking.carModel || "",
+            licensePlate: booking.licensePlate || `TMP-${Math.floor(Math.random() * 10000)}`,
+          };
+          
+          // Create service appointment
+          const appointmentId = `appt-${Date.now()}`;
+          const newAppointment = {
+            id: appointmentId,
+            service: Array.isArray(booking.services) ? booking.services.join(", ") : booking.services,
+            date: booking.date,
+            time: booking.time,
+            amount: booking.amount,
+            status: "Scheduled",
+            vehicleId: vehicleId,
+          };
+          
+          // Update user profile information if available
+          if (booking.name && booking.name.trim() !== "") {
+            userData.fullName = booking.name;
+          }
+          if (booking.email && booking.email.trim() !== "") {
+            userData.email = booking.email;
+          }
+          if (booking.phone && booking.phone.trim() !== "") {
+            userData.phone = booking.phone;
+          }
+
+          // Add notification about new booking
+          const newNotification = {
+            id: Date.now(),
+            message: `New appointment scheduled for ${newVehicle.year} ${newVehicle.make} ${newVehicle.model}`,
+            date: new Date().toISOString(),
+            read: false
+          };
+
+          // Update user data with new vehicle, appointment and notification
+          const updatedUserData = {
+            ...userData,
+            vehicles: [...(userData.vehicles || []), newVehicle],
+            upcomingServices: [...(userData.upcomingServices || []), newAppointment],
+            notifications: [...(userData.notifications || []), newNotification]
+          };
+
+          // Save updated user data
+          localStorage.setItem(`userData_${userId}`, JSON.stringify(updatedUserData));
+          
+          // Update state
+          setUserData(updatedUserData);
+          setUnreadCount((prev) => prev + 1);
+
+          // Display success toast
+          toast({
+            title: "Booking data processed",
+            description: "Your recent booking has been added to your account",
+          });
+
+          // Clear the booking data to prevent duplicates
+          localStorage.removeItem("lastBooking");
         }
       } catch (error) {
         console.error("Error processing booking data:", error);
+        toast({
+          title: "Error processing booking data",
+          description: "Please try again or contact support",
+          variant: "destructive",
+        });
       }
     }
   }, [toast]);
