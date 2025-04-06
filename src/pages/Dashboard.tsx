@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle } from "lucide-react";
+import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle, User } from "lucide-react";
 import { ServiceProgress, ServiceTask } from "@/components/ServiceProgress";
 import { useToast } from "@/hooks/use-toast";
 
@@ -169,6 +169,14 @@ const Dashboard = () => {
                   </span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="progress" className="flex items-center">
+                <Clock className="mr-1 h-4 w-4" />
+                Progress
+              </TabsTrigger>
+              <TabsTrigger value="profile" className="flex items-center">
+                <User className="mr-1 h-4 w-4" />
+                Profile
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="vehicles" className="space-y-4">
@@ -254,14 +262,10 @@ const Dashboard = () => {
                 </Card>
               )}
             </TabsContent>
-          </Tabs>
-          
-          {/* Service Progress Section - Restored */}
-          {userData?.serviceProgress && userData.serviceProgress.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-xl font-semibold mb-4">Service Progress</h2>
-              <div className="space-y-6">
-                {userData.serviceProgress.map((progress) => {
+
+            <TabsContent value="progress" className="space-y-4">
+              {userData?.serviceProgress && userData.serviceProgress.length > 0 ? (
+                userData.serviceProgress.map((progress) => {
                   const vehicle = userData.vehicles?.find(v => v.id === progress.vehicleId);
                   return vehicle ? (
                     <ServiceProgress
@@ -273,10 +277,56 @@ const Dashboard = () => {
                       userId={userData.id} 
                     />
                   ) : null;
-                })}
-              </div>
-            </div>
-          )}
+                })
+              ) : (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <p className="text-gray-500">No service progress available yet.</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      Active service appointments will appear here once they are being worked on.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="profile" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Personal Information</CardTitle>
+                  <CardDescription>
+                    Manage your personal information
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {userData ? (
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Full Name</p>
+                        <p className="font-medium">{userData.fullName || "Not provided"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Email</p>
+                        <p className="font-medium">{userData.email || "Not provided"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Phone</p>
+                        <p className="font-medium">{userData.phone || "Not provided"}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">User information not available.</p>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline">
+                    <Settings className="mr-1 h-4 w-4" />
+                    Edit Profile
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
       <Footer />
