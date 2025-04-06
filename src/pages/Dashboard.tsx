@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -6,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle } from "lucide-react";
 import { ServiceProgress, ServiceTask } from "@/components/ServiceProgress";
+import { useToast } from "@/hooks/use-toast";
 
 interface Vehicle {
   id: string;
@@ -51,8 +53,10 @@ interface UserData {
 const Dashboard = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { toast } = useToast();
 
   useEffect(() => {
+    // Load user data from localStorage
     const userId = localStorage.getItem("userId");
     if (userId) {
       const storedData = localStorage.getItem(`userData_${userId}`);
@@ -65,7 +69,68 @@ const Dashboard = () => {
         setUnreadCount(unread);
       }
     }
-  }, []);
+
+    // Check for booking form data and update
+    const bookingData = localStorage.getItem("lastBooking");
+    if (bookingData) {
+      try {
+        const booking = JSON.parse(bookingData);
+        const userId = localStorage.getItem("userId");
+        
+        if (userId) {
+          // Get current user data
+          const storedData = localStorage.getItem(`userData_${userId}`);
+          if (storedData) {
+            const userData: UserData = JSON.parse(storedData);
+            
+            // Create vehicle if it doesn't exist already
+            const vehicleId = `v-${Date.now()}`;
+            const newVehicle = {
+              id: vehicleId,
+              year: booking.carYear || "",
+              make: booking.carMake || "",
+              model: booking.carModel || "",
+              licensePlate: booking.licensePlate || `TMP-${Math.floor(Math.random() * 10000)}`,
+            };
+            
+            // Create service appointment
+            const appointmentId = `appt-${Date.now()}`;
+            const newAppointment = {
+              id: appointmentId,
+              service: booking.services.join(", "),
+              date: booking.date,
+              time: booking.time,
+              amount: booking.amount,
+              status: "Scheduled",
+              vehicleId: vehicleId,
+            };
+
+            // Update user data with new vehicle and appointment
+            const updatedUserData = {
+              ...userData,
+              vehicles: [...(userData.vehicles || []), newVehicle],
+              upcomingServices: [...(userData.upcomingServices || []), newAppointment],
+            };
+
+            // Save updated user data
+            localStorage.setItem(`userData_${userId}`, JSON.stringify(updatedUserData));
+            setUserData(updatedUserData);
+
+            // Display success toast
+            toast({
+              title: "Booking data processed",
+              description: "Your recent booking has been added to your account",
+            });
+
+            // Clear the booking data to prevent duplicates
+            localStorage.removeItem("lastBooking");
+          }
+        }
+      } catch (error) {
+        console.error("Error processing booking data:", error);
+      }
+    }
+  }, [toast]);
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -189,29 +254,29 @@ const Dashboard = () => {
                 </Card>
               )}
             </TabsContent>
-            
-            {userData?.serviceProgress && userData.serviceProgress.length > 0 && (
-              <div className="mt-8">
-                <h2 className="text-xl font-semibold mb-4">Service Progress</h2>
-                <div className="space-y-6">
-                  {userData.serviceProgress.map((progress) => {
-                    const vehicle = userData.vehicles?.find(v => v.id === progress.vehicleId);
-                    return vehicle ? (
-                      <ServiceProgress
-                        key={progress.appointmentId}
-                        vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-                        progress={progress.progress}
-                        tasks={progress.tasks}
-                        appointmentId={progress.appointmentId}
-                        userId={userData.id} // Pass the user ID
-                      />
-                    ) : null;
-                  })}
-                </div>
-              </div>
-            )}
-
           </Tabs>
+          
+          {/* Service Progress Section - Restored */}
+          {userData?.serviceProgress && userData.serviceProgress.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">Service Progress</h2>
+              <div className="space-y-6">
+                {userData.serviceProgress.map((progress) => {
+                  const vehicle = userData.vehicles?.find(v => v.id === progress.vehicleId);
+                  return vehicle ? (
+                    <ServiceProgress
+                      key={progress.appointmentId}
+                      vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                      progress={progress.progress}
+                      tasks={progress.tasks}
+                      appointmentId={progress.appointmentId}
+                      userId={userData.id} 
+                    />
+                  ) : null;
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <Footer />

@@ -96,13 +96,43 @@ const Booking = () => {
     if (step < 4) {
       setStep(step + 1);
     } else {
-      setTimeout(() => {
-        setBookingComplete(true);
-        toast({
-          title: "Booking Successful",
-          description: "Your service has been scheduled",
-        });
-      }, 1500);
+      const bookingData = {
+        services: selectedServices.map(serviceId => {
+          const service = services.find(s => s.id === serviceId);
+          return service ? service.name : "";
+        }),
+        date: date ? format(date, 'yyyy-MM-dd') : '',
+        time,
+        name,
+        email,
+        phone,
+        carMake,
+        carModel,
+        carYear,
+        additionalInfo,
+        amount: getTotalPrice()
+      };
+      
+      localStorage.setItem("lastBooking", JSON.stringify(bookingData));
+      
+      const userId = localStorage.getItem("userId");
+      if (userId) {
+        setTimeout(() => {
+          setBookingComplete(true);
+          toast({
+            title: "Booking Successful",
+            description: "Your service has been scheduled",
+          });
+        }, 1500);
+      } else {
+        setTimeout(() => {
+          setBookingComplete(true);
+          toast({
+            title: "Booking Successful",
+            description: "Please log in to view your bookings",
+          });
+        }, 1500);
+      }
     }
   };
 
