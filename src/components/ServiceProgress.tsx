@@ -30,6 +30,19 @@ interface ServiceProgressProps {
 export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }: ServiceProgressProps) {
   const [selectedImage, setSelectedImage] = useState<{url: string, title: string} | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string}[]>([]);
+  
+  useEffect(() => {
+    // Load shared images from localStorage
+    try {
+      const storedImages = localStorage.getItem('sharedServiceImages');
+      if (storedImages) {
+        setSharedImages(JSON.parse(storedImages));
+      }
+    } catch (error) {
+      console.error("Error loading shared images:", error);
+    }
+  }, []);
   
   const openImageDialog = (image: {url: string, title: string}) => {
     setSelectedImage(image);
@@ -56,7 +69,13 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
 
       <CardContent>
         <div className="mb-4">
-          <Progress value={progress} className="h-2" />
+          <Progress 
+            value={progress} 
+            className="h-2" 
+            indicatorClassName={cn(
+              progress >= 100 ? "bg-green-500" : "bg-blue-500"
+            )}
+          />
         </div>
 
         <div className="space-y-5 my-4">
@@ -108,6 +127,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
                       </p>
                     )}
 
+                    {/* Display task-specific images */}
                     {task.images && task.images.length > 0 && (
                       <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {task.images.map((image, index) => (
@@ -128,6 +148,38 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Display shared images relevant to this task */}
+                    {sharedImages.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {sharedImages
+                            .filter(img => 
+                              img.title.toLowerCase().includes(task.title.toLowerCase()) || 
+                              task.title.toLowerCase().includes(img.title.toLowerCase())
+                            )
+                            .map((image, index) => (
+                              <div 
+                                key={`shared-${index}`} 
+                                className="relative group cursor-pointer"
+                                onClick={() => openImageDialog(image)}
+                              >
+                                <div className="aspect-square overflow-hidden rounded-md border">
+                                  <img 
+                                    src={image.url} 
+                                    alt={image.title}
+                                    className="w-full h-full object-cover transition-transform hover:scale-105"
+                                  />
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                                  {image.title}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
                       </div>
                     )}
                   </div>

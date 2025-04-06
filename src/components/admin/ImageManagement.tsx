@@ -1,13 +1,14 @@
 
-import { useState, useRef, ChangeEvent } from "react";
+import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Upload, ImageIcon, X, Plus } from "lucide-react";
+import { Upload, ImageIcon, X, Plus, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ServiceImage {
   id: string;
@@ -31,6 +32,39 @@ const ImageManagement = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Load images from localStorage on component mount
+    loadImagesFromStorage();
+  }, []);
+
+  const loadImagesFromStorage = () => {
+    try {
+      const storedImages = localStorage.getItem('adminServiceImages');
+      if (storedImages) {
+        setImages(JSON.parse(storedImages));
+      }
+    } catch (error) {
+      console.error("Error loading images from storage:", error);
+    }
+  };
+
+  const saveImagesToStorage = (updatedImages: ServiceImage[]) => {
+    try {
+      localStorage.setItem('adminServiceImages', JSON.stringify(updatedImages));
+      
+      // Also save a simplified version for sharing with service progress
+      const sharedImages = updatedImages.map(img => ({
+        url: img.url,
+        title: img.title,
+        category: img.category
+      }));
+      localStorage.setItem('sharedServiceImages', JSON.stringify(sharedImages));
+      
+    } catch (error) {
+      console.error("Error saving images to storage:", error);
+    }
+  };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,8 +97,7 @@ const ImageManagement = () => {
       return;
     }
 
-    // In a real app, you would upload to a server here
-    // For now, just add to local state with the data URL
+    // Create a new image object
     const newImage: ServiceImage = {
       id: `img_${Date.now()}`,
       title: newImageData.title,
@@ -73,7 +106,12 @@ const ImageManagement = () => {
       createdAt: new Date().toISOString()
     };
 
-    setImages([newImage, ...images]);
+    // Update state with the new image
+    const updatedImages = [newImage, ...images];
+    setImages(updatedImages);
+    
+    // Save to localStorage
+    saveImagesToStorage(updatedImages);
     
     // Reset form
     resetUploadForm();
@@ -81,7 +119,7 @@ const ImageManagement = () => {
     
     toast({
       title: "Success",
-      description: "Image uploaded successfully"
+      description: "Image uploaded successfully and shared with service progress"
     });
   };
 
@@ -103,7 +141,12 @@ const ImageManagement = () => {
   };
 
   const deleteImage = (id: string) => {
-    setImages(images.filter(img => img.id !== id));
+    const updatedImages = images.filter(img => img.id !== id);
+    setImages(updatedImages);
+    
+    // Save updated list to localStorage
+    saveImagesToStorage(updatedImages);
+    
     toast({
       title: "Image deleted",
       description: "The image has been removed"
@@ -127,6 +170,13 @@ const ImageManagement = () => {
           Upload Image
         </Button>
       </div>
+
+      <Alert className="bg-blue-50 border-blue-200">
+        <Info className="h-4 w-4 text-blue-500" />
+        <AlertDescription className="text-blue-700">
+          Images uploaded here will automatically be available in customer service progress sections
+        </AlertDescription>
+      </Alert>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
