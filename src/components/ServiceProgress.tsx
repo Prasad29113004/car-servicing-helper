@@ -25,12 +25,13 @@ interface ServiceProgressProps {
   progress: number;
   tasks: ServiceTask[];
   appointmentId?: string;
+  userId?: string; // Add userId prop
 }
 
-export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }: ServiceProgressProps) {
+export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, userId }: ServiceProgressProps) {
   const [selectedImage, setSelectedImage] = useState<{url: string, title: string} | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
-  const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string}[]>([]);
+  const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string, customerId?: string}[]>([]);
   
   useEffect(() => {
     // Load shared images from localStorage
@@ -48,6 +49,11 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
     setSelectedImage(image);
     setIsImageDialogOpen(true);
   };
+
+  // Filter shared images based on userId if provided
+  const filteredSharedImages = sharedImages.filter(img => 
+    img.customerId === 'all' || img.customerId === userId
+  );
 
   return (
     <Card className="shadow-md">
@@ -152,11 +158,11 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId }:
                     )}
 
                     {/* Display shared images relevant to this task */}
-                    {sharedImages.length > 0 && (
+                    {filteredSharedImages.length > 0 && (
                       <div className="mt-3">
                         <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {sharedImages
+                          {filteredSharedImages
                             .filter(img => 
                               img.title.toLowerCase().includes(task.title.toLowerCase()) || 
                               task.title.toLowerCase().includes(img.title.toLowerCase())

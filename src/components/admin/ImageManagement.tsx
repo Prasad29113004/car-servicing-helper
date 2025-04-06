@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Upload, ImageIcon, X, Plus, Info } from "lucide-react";
+import { Upload, ImageIcon, X, Plus, Info, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ServiceImage {
   id: string;
@@ -16,6 +17,16 @@ interface ServiceImage {
   url: string;
   createdAt: string;
   category: string;
+  customerId?: string | 'all';
+  customerName?: string;
+}
+
+interface UserData {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  vehicles?: any[];
 }
 
 const ImageManagement = () => {
@@ -27,16 +38,38 @@ const ImageManagement = () => {
   const [newImageData, setNewImageData] = useState({
     title: "",
     category: "general",
-    url: ""
+    url: "",
+    customerId: "all"
   });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [allUsers, setAllUsers] = useState<UserData[]>([]);
 
   useEffect(() => {
     // Load images from localStorage on component mount
     loadImagesFromStorage();
+    loadAllUsers();
   }, []);
+
+  const loadAllUsers = () => {
+    const users: UserData[] = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      
+      if (key && key.startsWith('userData_')) {
+        try {
+          const userData = JSON.parse(localStorage.getItem(key) || '{}');
+          users.push(userData);
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      }
+    }
+    
+    setAllUsers(users);
+  };
 
   const loadImagesFromStorage = () => {
     try {
@@ -57,7 +90,9 @@ const ImageManagement = () => {
       const sharedImages = updatedImages.map(img => ({
         url: img.url,
         title: img.title,
-        category: img.category
+        category: img.category,
+        customerId: img.customerId || 'all',
+        customerName: img.customerName
       }));
       localStorage.setItem('sharedServiceImages', JSON.stringify(sharedImages));
       
@@ -97,13 +132,22 @@ const ImageManagement = () => {
       return;
     }
 
+    // Get customer name if specific customer selected
+    let customerName = "All Customers";
+    if (newImageData.customerId !== "all") {
+      const customer = allUsers.find(user => user.id === newImageData.customerId);
+      customerName = customer ? customer.fullName : "Unknown Customer";
+    }
+
     // Create a new image object
     const newImage: ServiceImage = {
       id: `img_${Date.now()}`,
       title: newImageData.title,
       url: imagePreview,
       category: newImageData.category,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      customerId: newImageData.customerId,
+      customerName: customerName
     };
 
     // Update state with the new image
@@ -119,7 +163,7 @@ const ImageManagement = () => {
     
     toast({
       title: "Success",
-      description: "Image uploaded successfully and shared with service progress"
+      description: `Image uploaded successfully and shared with ${newImageData.customerId === 'all' ? 'all customers' : customerName}`
     });
   };
 
@@ -127,7 +171,8 @@ const ImageManagement = () => {
     setNewImageData({
       title: "",
       category: "general",
-      url: ""
+      url: "",
+      customerId: "all"
     });
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -208,15 +253,20 @@ const ImageManagement = () => {
                     </div>
                   </div>
                   <CardContent className="p-3">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-start">
                       <div className="truncate">
                         <p className="font-medium text-sm truncate">{image.title}</p>
                         <p className="text-xs text-gray-500">{new Date(image.createdAt).toLocaleDateString()}</p>
+                        {image.customerName && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            {image.customerId === 'all' ? 'All Customers' : image.customerName}
+                          </p>
+                        )}
                       </div>
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-8 w-8 text-gray-500 hover:text-red-500"
+                        className="h-8 w-8 text-gray-500 hover:text-red-500 ml-2"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteImage(image.id);
@@ -282,6 +332,32 @@ const ImageManagement = () => {
                 <option value="service">Service</option>
                 <option value="parts">Parts</option>
               </select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="customerSelect">Share With</Label>
+              <Select 
+                value={newImageData.customerId} 
+                onValueChange={(value) => setNewImageData({...newImageData, customerId: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center">
+                      <Users className="mr-2 h-4 w-4 text-blue-500" />
+                      <span>All Customers</span>
+                    </div>
+                  </SelectItem>
+                  {allUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">Select which customer(s) this image will be visible to</p>
             </div>
             
             <div className="grid gap-2">
@@ -354,6 +430,11 @@ const ImageManagement = () => {
             <DialogTitle>{selectedImage?.title}</DialogTitle>
             <DialogDescription>
               {selectedImage?.category} | {selectedImage && new Date(selectedImage.createdAt).toLocaleDateString()}
+              {selectedImage?.customerName && (
+                <div className="mt-1 text-blue-600">
+                  Shared with: {selectedImage.customerId === 'all' ? 'All Customers' : selectedImage.customerName}
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
           
