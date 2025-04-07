@@ -144,20 +144,25 @@ const Booking = () => {
         carYear,
         licensePlate,
         additionalInfo,
-        amount: getTotalPrice()
+        amount: getTotalPrice(),
+        paymentStatus: "Pending"
       };
       
       localStorage.setItem("lastBooking", JSON.stringify(bookingData));
       
       const userId = localStorage.getItem("userId");
       if (userId) {
-        setTimeout(() => {
-          setBookingComplete(true);
-          toast({
-            title: "Booking Successful",
-            description: "Your service has been scheduled",
-          });
-        }, 1500);
+        // If user is logged in, proceed to payment page
+        navigate('/payment', {
+          state: {
+            paymentInfo: {
+              bookingId: `BK${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`,
+              services: bookingData.services,
+              total: bookingData.amount,
+              date: bookingData.date,
+            }
+          }
+        });
       } else {
         setTimeout(() => {
           setBookingComplete(true);
@@ -564,11 +569,11 @@ const Booking = () => {
                 </p>
                 
                 <div className="flex space-x-4">
-                  <Button variant="outline" asChild>
-                    <a href="/dashboard">Go to Dashboard</a>
+                  <Button variant="outline" onClick={() => navigate("/login")}>
+                    Login to Pay
                   </Button>
-                  <Button asChild>
-                    <a href="/">Return to Home</a>
+                  <Button onClick={() => navigate("/")}>
+                    Return to Home
                   </Button>
                 </div>
               </div>

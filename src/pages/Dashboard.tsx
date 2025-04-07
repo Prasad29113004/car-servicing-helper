@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -17,6 +16,7 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import { formatDistance } from "date-fns";
+import InvoiceView from "@/components/InvoiceView";
 
 interface Vehicle {
   id: string;
@@ -72,10 +72,10 @@ const Dashboard = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [relatedAppointment, setRelatedAppointment] = useState<UpcomingService | null>(null);
   const [relatedVehicle, setRelatedVehicle] = useState<Vehicle | null>(null);
+  const userId = localStorage.getItem("userId");
 
   useEffect(() => {
     // Load user data from localStorage
-    const userId = localStorage.getItem("userId");
     if (userId) {
       const storedData = localStorage.getItem(`userData_${userId}`);
       if (storedData) {
@@ -442,7 +442,7 @@ const Dashboard = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="profile" className="space-y-4">
+            <TabsContent value="profile" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
@@ -477,6 +477,11 @@ const Dashboard = () => {
                   </Button>
                 </CardFooter>
               </Card>
+              
+              <div className="mt-6">
+                <h3 className="text-lg font-medium mb-4">Your Invoices</h3>
+                {userId && <InvoiceView userId={userId} />}
+              </div>
             </TabsContent>
           </Tabs>
           
@@ -569,4 +574,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-

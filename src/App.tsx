@@ -12,6 +12,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Booking from "./pages/Booking";
+import Payment from "./pages/Payment";
 import Contact from "./pages/Contact";
 import Services from "./pages/Services";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,7 @@ const App = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/booking" element={<Booking />} />
+            <Route path="/payment" element={<Payment />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/services" element={<Services />} />
             <Route path="*" element={<NotFound />} />
