@@ -42,6 +42,7 @@ const Login = () => {
               email: "user@example.com",
               phone: "9876543210",
               address: "123 MG Road, Bangalore, Karnataka",
+              role: "user", // Add role field
               vehicles: [
                 { 
                   id: "v-1", 
@@ -160,7 +161,23 @@ const Login = () => {
         if (email === "admin@example.com" && password === "admin") {
           localStorage.setItem("isLoggedIn", "true");
           localStorage.setItem("userRole", "admin");
-          localStorage.setItem("userId", "admin");
+          
+          // Set admin user ID
+          const adminId = "admin_user";
+          localStorage.setItem("userId", adminId);
+          
+          // Create admin user data if it doesn't exist
+          if (!localStorage.getItem(`userData_${adminId}`)) {
+            const adminUserData = {
+              id: adminId,
+              fullName: "Admin User",
+              email: "admin@example.com",
+              role: "admin",
+              phone: "9800000000",
+              address: "Admin Office, Bangalore"
+            };
+            localStorage.setItem(`userData_${adminId}`, JSON.stringify(adminUserData));
+          }
           
           toast({
             title: "Admin Login successful",

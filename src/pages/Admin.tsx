@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -32,6 +31,11 @@ const Admin = () => {
     }
 
     try {
+      if (userId === "admin_user") {
+        setIsAdmin(true);
+        return;
+      }
+      
       const userData = localStorage.getItem(`userData_${userId}`);
       if (userData) {
         const user = JSON.parse(userData);
