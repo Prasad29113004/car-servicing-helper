@@ -8,6 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle, User } from "lucide-react";
 import { ServiceProgress, ServiceTask } from "@/components/ServiceProgress";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import { formatDistance } from "date-fns";
 
 interface Vehicle {
   id: string;
@@ -32,6 +41,11 @@ interface Notification {
   message: string;
   date: string;
   read: boolean;
+  details?: {
+    type: string;
+    appointmentId?: string;
+    vehicleId?: string;
+  };
 }
 
 interface UserData {
@@ -54,6 +68,10 @@ const Dashboard = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const { toast } = useToast();
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [relatedAppointment, setRelatedAppointment] = useState<UpcomingService | null>(null);
+  const [relatedVehicle, setRelatedVehicle] = useState<Vehicle | null>(null);
 
   useEffect(() => {
     // Load user data from localStorage
@@ -136,7 +154,12 @@ const Dashboard = () => {
             id: Date.now(),
             message: `New appointment scheduled for ${newVehicle.year} ${newVehicle.make} ${newVehicle.model}`,
             date: new Date().toISOString(),
-            read: false
+            read: false,
+            details: {
+              type: "appointment",
+              appointmentId: appointmentId,
+              vehicleId: vehicleId
+            }
           };
 
           // Update user data with new vehicle, appointment and notification
@@ -173,6 +196,61 @@ const Dashboard = () => {
       }
     }
   }, [toast]);
+
+  // Handle viewing notification details
+  const handleViewDetails = (notification: Notification) => {
+    setSelectedNotification(notification);
+    
+    // Mark notification as read
+    if (!notification.read && userData) {
+      const updatedNotifications = userData.notifications?.map(n => 
+        n.id === notification.id ? {...n, read: true} : n
+      );
+      
+      const updatedUserData = {
+        ...userData,
+        notifications: updatedNotifications
+      };
+      
+      // Update localStorage
+      localStorage.setItem(`userData_${userData.id}`, JSON.stringify(updatedUserData));
+      
+      // Update state
+      setUserData(updatedUserData);
+      setUnreadCount(prev => prev > 0 ? prev - 1 : 0);
+    }
+    
+    // Find related appointment and vehicle if they exist
+    if (notification.details) {
+      if (notification.details.appointmentId) {
+        const appointment = userData?.upcomingServices?.find(
+          service => service.id === notification.details?.appointmentId
+        );
+        setRelatedAppointment(appointment || null);
+        
+        // Find vehicle related to appointment
+        if (appointment) {
+          const vehicle = userData?.vehicles?.find(v => v.id === appointment.vehicleId);
+          setRelatedVehicle(vehicle || null);
+        }
+      } else if (notification.details.vehicleId) {
+        const vehicle = userData?.vehicles?.find(v => v.id === notification.details.vehicleId);
+        setRelatedVehicle(vehicle || null);
+      }
+    }
+    
+    setIsDialogOpen(true);
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return formatDistance(date, new Date(), { addSuffix: true });
+    } catch (e) {
+      return dateString;
+    }
+  };
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -231,7 +309,18 @@ const Dashboard = () => {
                     </CardHeader>
                     <CardContent>
                       <p>
-                        <a href="#" className="text-blue-500 hover:underline">View Details</a>
+                        <Button 
+                          variant="link" 
+                          className="text-blue-500 p-0 hover:underline"
+                          onClick={() => {
+                            setSelectedNotification(null);
+                            setRelatedVehicle(vehicle);
+                            setRelatedAppointment(null);
+                            setIsDialogOpen(true);
+                          }}
+                        >
+                          View Details
+                        </Button>
                       </p>
                     </CardContent>
                   </Card>
@@ -267,7 +356,14 @@ const Dashboard = () => {
                         <p>Status: {service.status}</p>
                       </CardContent>
                       <CardFooter>
-                        <Button>
+                        <Button
+                          onClick={() => {
+                            setSelectedNotification(null);
+                            setRelatedAppointment(service);
+                            setRelatedVehicle(vehicle || null);
+                            setIsDialogOpen(true);
+                          }}
+                        >
                           <Clock className="mr-1 h-4 w-4" />
                           Manage
                         </Button>
@@ -295,11 +391,17 @@ const Dashboard = () => {
                           <span className="ml-2 text-xs text-blue-500">New</span>
                         )}
                       </CardTitle>
-                      <CardDescription>{notification.date}</CardDescription>
+                      <CardDescription>{formatDate(notification.date)}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <p>
-                        <a href="#" className="text-blue-500 hover:underline">View Details</a>
+                        <Button 
+                          variant="link" 
+                          className="text-blue-500 p-0 hover:underline"
+                          onClick={() => handleViewDetails(notification)}
+                        >
+                          View Details
+                        </Button>
                       </p>
                     </CardContent>
                   </Card>
@@ -377,6 +479,88 @@ const Dashboard = () => {
               </Card>
             </TabsContent>
           </Tabs>
+          
+          {/* Notification Details Dialog */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedNotification ? "Notification Details" : 
+                   relatedAppointment ? "Appointment Details" : "Vehicle Details"}
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedNotification?.message || "View detailed information"}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="py-4">
+                {/* Vehicle Details Section */}
+                {relatedVehicle && (
+                  <div className="mb-4 p-4 border rounded-md">
+                    <h3 className="font-semibold text-lg mb-2">Vehicle Information</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-sm text-gray-500">Make</p>
+                        <p>{relatedVehicle.make}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Model</p>
+                        <p>{relatedVehicle.model}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Year</p>
+                        <p>{relatedVehicle.year}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">License Plate</p>
+                        <p>{relatedVehicle.licensePlate}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Appointment Details Section */}
+                {relatedAppointment && (
+                  <div className="mb-4 p-4 border rounded-md">
+                    <h3 className="font-semibold text-lg mb-2">Appointment Details</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-sm text-gray-500">Service</p>
+                        <p>{relatedAppointment.service}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Status</p>
+                        <p>{relatedAppointment.status}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Date</p>
+                        <p>{relatedAppointment.date}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Time</p>
+                        <p>{relatedAppointment.time}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Amount</p>
+                        <p>{relatedAppointment.amount}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* If no related data */}
+                {!relatedVehicle && !relatedAppointment && (
+                  <p className="text-center text-gray-500 py-4">No additional details available</p>
+                )}
+              </div>
+              
+              <div className="flex justify-end">
+                <DialogClose asChild>
+                  <Button>Close</Button>
+                </DialogClose>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
       <Footer />
@@ -385,3 +569,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
