@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -82,8 +83,10 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+          <TabsList className="grid grid-cols-6 w-full max-w-3xl">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
+            <TabsTrigger value="progress">Service Progress</TabsTrigger>
             <TabsTrigger value="reminders">Reminders</TabsTrigger>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
             <TabsTrigger value="images">Image Management</TabsTrigger>
@@ -166,6 +169,166 @@ const Admin = () => {
                   </svg>
                   Generate Reports
                 </Button>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="appointments">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-xl font-medium mb-4">Manage Appointments</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border p-2 text-left">ID</th>
+                      <th className="border p-2 text-left">Customer</th>
+                      <th className="border p-2 text-left">Service</th>
+                      <th className="border p-2 text-left">Date & Time</th>
+                      <th className="border p-2 text-left">Vehicle</th>
+                      <th className="border p-2 text-left">Status</th>
+                      <th className="border p-2 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border p-2">AP-001</td>
+                      <td className="border p-2">Amit Kumar</td>
+                      <td className="border p-2">Full Service</td>
+                      <td className="border p-2">2024-04-10 10:00 AM</td>
+                      <td className="border p-2">Maruti Swift (KA-01-1234)</td>
+                      <td className="border p-2"><span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Confirmed</span></td>
+                      <td className="border p-2 space-x-2">
+                        <Button variant="outline" size="sm">Edit</Button>
+                        <Button variant="ghost" size="sm" className="text-red-500">Cancel</Button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">AP-002</td>
+                      <td className="border p-2">Priya Sharma</td>
+                      <td className="border p-2">Oil Change</td>
+                      <td className="border p-2">2024-04-11 09:30 AM</td>
+                      <td className="border p-2">Honda City (KA-02-5678)</td>
+                      <td className="border p-2"><span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Pending</span></td>
+                      <td className="border p-2 space-x-2">
+                        <Button variant="outline" size="sm">Edit</Button>
+                        <Button variant="ghost" size="sm" className="text-red-500">Cancel</Button>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-2">AP-003</td>
+                      <td className="border p-2">Rahul Verma</td>
+                      <td className="border p-2">Wheel Alignment</td>
+                      <td className="border p-2">2024-04-12 02:00 PM</td>
+                      <td className="border p-2">Hyundai i20 (KA-03-4321)</td>
+                      <td className="border p-2"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">In Progress</span></td>
+                      <td className="border p-2 space-x-2">
+                        <Button variant="outline" size="sm">Edit</Button>
+                        <Button variant="ghost" size="sm" className="text-red-500">Cancel</Button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 flex justify-between">
+                <Button variant="outline">Previous</Button>
+                <div className="flex items-center space-x-1">
+                  <Button variant="outline" size="sm" className="w-8 h-8 p-0">1</Button>
+                  <Button variant="ghost" size="sm" className="w-8 h-8 p-0">2</Button>
+                  <Button variant="ghost" size="sm" className="w-8 h-8 p-0">3</Button>
+                </div>
+                <Button variant="outline">Next</Button>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="progress">
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-xl font-medium mb-4">Service Progress</h3>
+              <div className="space-y-6">
+                <div className="border rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-lg font-medium">Maruti Swift (KA-01-1234) - Full Service</h4>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">In Progress</span>
+                  </div>
+                  <p className="mb-2">Customer: Amit Kumar</p>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Vehicle Inspection</span>
+                      <span className="text-sm">Completed</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "100%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Oil Change</span>
+                      <span className="text-sm">Completed</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "100%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Filter Replacement</span>
+                      <span className="text-sm">In Progress</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "60%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Final Inspection</span>
+                      <span className="text-sm">Pending</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "0%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button>Update Progress</Button>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-lg font-medium">Honda City (KA-02-5678) - Oil Change</h4>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Completed</span>
+                  </div>
+                  <p className="mb-2">Customer: Priya Sharma</p>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Vehicle Inspection</span>
+                      <span className="text-sm">Completed</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-600 h-2 rounded-full" style={{ width: "100%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Oil Change</span>
+                      <span className="text-sm">Completed</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-600 h-2 rounded-full" style={{ width: "100%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm">Final Inspection</span>
+                      <span className="text-sm">Completed</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-600 h-2 rounded-full" style={{ width: "100%" }}></div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Button variant="outline">View Details</Button>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
