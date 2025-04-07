@@ -32,7 +32,7 @@ const Login = () => {
           
           // Set demo user ID
           const demoUserId = "demo_user";
-          localStorage.setItem("currentUserId", demoUserId);
+          localStorage.setItem("userId", demoUserId);
           
           // Create demo user data if it doesn't exist
           if (!localStorage.getItem(`userData_${demoUserId}`)) {
@@ -43,8 +43,53 @@ const Login = () => {
               phone: "9876543210",
               address: "123 MG Road, Bangalore, Karnataka",
               vehicles: [
-                { id: 1, make: "Maruti Suzuki", model: "Swift", year: 2020, licensePlate: "KA01AB1234" },
-                { id: 2, make: "Honda", model: "City", year: 2019, licensePlate: "KA02CD5678" }
+                { 
+                  id: "v-1", 
+                  make: "Maruti Suzuki", 
+                  model: "Swift", 
+                  year: "2020", 
+                  licensePlate: "KA01AB1234" 
+                },
+                { 
+                  id: "v-2", 
+                  make: "Honda", 
+                  model: "City", 
+                  year: "2019", 
+                  licensePlate: "KA02CD5678" 
+                }
+              ],
+              upcomingServices: [
+                {
+                  id: "appt-1",
+                  service: "Oil Change, General Service",
+                  date: "2025-04-15",
+                  time: "10:00",
+                  amount: "₹3,998",
+                  status: "Scheduled",
+                  vehicleId: "v-1"
+                }
+              ],
+              notifications: [
+                {
+                  id: 1,
+                  message: "Your appointment for Maruti Suzuki Swift is confirmed",
+                  date: new Date().toISOString(),
+                  read: false
+                }
+              ],
+              serviceProgress: [
+                {
+                  appointmentId: "appt-1",
+                  vehicleId: "v-1",
+                  progress: 30,
+                  tasks: [
+                    { id: 1, name: "Vehicle Check-in", completed: true },
+                    { id: 2, name: "Diagnostics", completed: true },
+                    { id: 3, name: "Oil Change", completed: false },
+                    { id: 4, name: "Filter Replacement", completed: false },
+                    { id: 5, name: "Final Inspection", completed: false }
+                  ]
+                }
               ]
             };
             localStorage.setItem(`userData_${demoUserId}`, JSON.stringify(demoUserData));
@@ -81,7 +126,7 @@ const Login = () => {
               if (userId) {
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem("userRole", "user");
-                localStorage.setItem("currentUserId", userId);
+                localStorage.setItem("userId", userId);
                 
                 toast({
                   title: "Login successful",
@@ -115,7 +160,7 @@ const Login = () => {
         if (email === "admin@example.com" && password === "admin") {
           localStorage.setItem("isLoggedIn", "true");
           localStorage.setItem("userRole", "admin");
-          localStorage.setItem("currentUserId", "admin");
+          localStorage.setItem("userId", "admin");
           
           toast({
             title: "Admin Login successful",

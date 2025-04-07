@@ -247,26 +247,34 @@ const Dashboard = () => {
 
             <TabsContent value="appointments" className="space-y-4">
               {userData?.upcomingServices && userData.upcomingServices.length > 0 ? (
-                userData.upcomingServices.map((service) => (
-                  <Card key={service.id}>
-                    <CardHeader>
-                      <CardTitle>{service.service}</CardTitle>
-                      <CardDescription>
-                        {new Date(service.date).toLocaleDateString()} at {service.time}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p>Amount: {service.amount}</p>
-                      <p>Status: {service.status}</p>
-                    </CardContent>
-                    <CardFooter>
-                      <Button>
-                        <Clock className="mr-1 h-4 w-4" />
-                        Manage
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))
+                userData.upcomingServices.map((service) => {
+                  const vehicle = userData.vehicles?.find(v => v.id === service.vehicleId);
+                  return (
+                    <Card key={service.id}>
+                      <CardHeader>
+                        <CardTitle>{service.service}</CardTitle>
+                        <CardDescription>
+                          {service.date} at {service.time}
+                          {vehicle && (
+                            <span className="block mt-1 text-sm">
+                              Vehicle: {vehicle.year} {vehicle.make} {vehicle.model}
+                            </span>
+                          )}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <p>Amount: {service.amount}</p>
+                        <p>Status: {service.status}</p>
+                      </CardContent>
+                      <CardFooter>
+                        <Button>
+                          <Clock className="mr-1 h-4 w-4" />
+                          Manage
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  );
+                })
               ) : (
                 <Card>
                   <CardContent>

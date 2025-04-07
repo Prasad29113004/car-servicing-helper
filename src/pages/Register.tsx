@@ -55,7 +55,7 @@ const Register = () => {
       
       // Generate a unique user ID
       const userId = "user_" + Date.now();
-      localStorage.setItem("currentUserId", userId);
+      localStorage.setItem("userId", userId);
       
       // Store user credentials for login
       const userCredentials = {
@@ -78,7 +78,7 @@ const Register = () => {
         upcomingServices: [], // Initialize empty upcoming services array
         serviceHistory: [], // Initialize empty service history array
         notifications: [], // Initialize empty notifications array
-        serviceImages: [], // Initialize empty service images array
+        serviceProgress: [], // Initialize empty service progress array
         registrationDate: currentDate, // Add registration date
         lastUpdated: currentDate // Add last update date
       };

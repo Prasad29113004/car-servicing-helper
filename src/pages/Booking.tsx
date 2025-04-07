@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,10 +16,6 @@ import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const services = [
   { id: "oil-change", name: "Oil Change", price: "₹999" },
@@ -35,6 +32,19 @@ const popularCarMakes = [
   "Renault", "Nissan", "Jeep", "Mercedes-Benz", "BMW", "Audi"
 ];
 
+interface UserData {
+  fullName: string;
+  email: string;
+  phone: string;
+  vehicles?: Array<{
+    id: string;
+    make: string;
+    model: string;
+    year: string;
+    licensePlate: string;
+  }>;
+}
+
 const Booking = () => {
   const [step, setStep] = useState(1);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -46,11 +56,34 @@ const Booking = () => {
   const [carMake, setCarMake] = useState("");
   const [carModel, setCarModel] = useState("");
   const [carYear, setCarYear] = useState("");
+  const [licensePlate, setLicensePlate] = useState("");
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [bookingComplete, setBookingComplete] = useState(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
   
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Load user data if logged in
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      const storedData = localStorage.getItem(`userData_${userId}`);
+      if (storedData) {
+        try {
+          const parsedData = JSON.parse(storedData);
+          setUserData(parsedData);
+          
+          // Pre-fill user information
+          setName(parsedData.fullName || "");
+          setEmail(parsedData.email || "");
+          setPhone(parsedData.phone || "");
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+        }
+      }
+    }
+  }, []);
 
   const validatePhone = (phoneNumber: string) => {
     const regex = /^[6-9]\d{9}$/;
@@ -109,6 +142,7 @@ const Booking = () => {
         carMake,
         carModel,
         carYear,
+        licensePlate,
         additionalInfo,
         amount: getTotalPrice()
       };
@@ -417,6 +451,16 @@ const Booking = () => {
                             />
                           </div>
                         </div>
+                        <div className="mt-4">
+                          <Label htmlFor="licensePlate">License Plate</Label>
+                          <Input 
+                            id="licensePlate" 
+                            placeholder="KA01AB1234" 
+                            value={licensePlate} 
+                            onChange={(e) => setLicensePlate(e.target.value)} 
+                            className="mt-1" 
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -458,6 +502,9 @@ const Booking = () => {
                         
                         <p className="text-sm text-gray-500">Vehicle:</p>
                         <p className="text-sm font-medium">{carYear} {carMake} {carModel}</p>
+                        
+                        <p className="text-sm text-gray-500">License Plate:</p>
+                        <p className="text-sm font-medium">{licensePlate || "Not provided"}</p>
                         
                         <p className="text-sm text-gray-500">Total Amount:</p>
                         <p className="text-sm font-medium text-carservice-blue">{getTotalPrice()}</p>
@@ -506,6 +553,7 @@ const Booking = () => {
                   <div className="text-left">
                     <p className="text-sm"><span className="font-medium">Services:</span> {getServiceNames()}</p>
                     <p className="text-sm"><span className="font-medium">Vehicle:</span> {carYear} {carMake} {carModel}</p>
+                    <p className="text-sm"><span className="font-medium">License Plate:</span> {licensePlate || "Not provided"}</p>
                     <p className="text-sm"><span className="font-medium">Total Amount:</span> {getTotalPrice()}</p>
                     <p className="text-sm"><span className="font-medium">Booking Reference:</span> #{Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}</p>
                   </div>
