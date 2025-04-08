@@ -33,7 +33,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string, customerId?: string}[]>([]);
   
-  // Refresh images from localStorage
+  // Function to refresh images from localStorage
   const loadSharedImages = () => {
     try {
       const storedImages = localStorage.getItem('sharedServiceImages');
@@ -41,15 +41,38 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
         const parsedImages = JSON.parse(storedImages);
         console.log("ServiceProgress - loaded images from storage:", parsedImages);
         setSharedImages(parsedImages);
+      } else {
+        console.log("ServiceProgress - No images found in storage");
       }
     } catch (error) {
       console.error("Error loading shared images:", error);
     }
   };
   
+  // Load images when component mounts and whenever localStorage updates
   useEffect(() => {
-    // Load shared images from localStorage
     loadSharedImages();
+    
+    // Set up event listener for localStorage changes
+    const handleStorageChange = () => {
+      loadSharedImages();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check for the image update flag
+    const checkForUpdates = setInterval(() => {
+      const updateFlag = localStorage.getItem('imageUpdatedTimestamp');
+      if (updateFlag) {
+        loadSharedImages();
+        localStorage.removeItem('imageUpdatedTimestamp');
+      }
+    }, 1000);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(checkForUpdates);
+    };
   }, []);
   
   const openImageDialog = (image: {url: string, title: string}) => {

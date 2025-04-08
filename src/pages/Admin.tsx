@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -151,6 +152,7 @@ const Admin = () => {
       userId?: string;
     }} = {};
     
+    // Find all user IDs
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('userData_') && !key.includes('admin')) {
@@ -159,6 +161,7 @@ const Admin = () => {
       }
     }
     
+    // Process each user's data
     userIds.forEach(userId => {
       try {
         const userData = localStorage.getItem(`userData_${userId}`);
@@ -242,6 +245,7 @@ const Admin = () => {
         const user = JSON.parse(userData);
         
         if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
+          // Find the specific appointment to update
           const updatedServices = user.upcomingServices.map((service: any) => {
             if (service.id === editAppointmentId) {
               return {
@@ -252,17 +256,23 @@ const Admin = () => {
             return service;
           });
           
-          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify({
+          // Update user data with modified service status
+          const updatedUserData = {
             ...user,
             upcomingServices: updatedServices
-          }));
+          };
           
+          // Save updated user data back to localStorage
+          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUserData));
+          
+          // Update local state
           setAppointments(prevAppointments => 
             prevAppointments.map(a => 
               a.id === editAppointmentId ? {...a, status: editStatus} : a
             )
           );
           
+          // Create default service progress if moving to "In Progress" status
           if (editStatus === "In Progress" && !serviceProgress[editAppointmentId]) {
             const defaultTasks: ServiceTask[] = [
               {
@@ -293,13 +303,16 @@ const Admin = () => {
               tasks: defaultTasks
             };
             
-            const updatedUserData = {
-              ...user,
-              serviceProgress: [...(user.serviceProgress || []), newProgress]
+            // Add the new progress to user data
+            const updatedUserWithProgress = {
+              ...updatedUserData,
+              serviceProgress: [...(updatedUserData.serviceProgress || []), newProgress]
             };
             
-            localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUserData));
+            // Save updated user data with progress
+            localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUserWithProgress));
             
+            // Update local state for progress
             setServiceProgress(prev => ({
               ...prev,
               [editAppointmentId]: {
@@ -311,6 +324,7 @@ const Admin = () => {
             }));
           }
           
+          // Add notification about status change
           const newNotification = {
             id: Date.now(),
             message: `Your appointment status has been updated to ${editStatus}`,
@@ -322,8 +336,12 @@ const Admin = () => {
             }
           };
           
-          user.notifications = [...(user.notifications || []), newNotification];
-          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(user));
+          const updatedUserWithNotification = {
+            ...updatedUserData,
+            notifications: [...(updatedUserData.notifications || []), newNotification]
+          };
+          
+          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUserWithNotification));
           
           toast({
             title: "Status Updated",
@@ -483,20 +501,24 @@ const Admin = () => {
       const userData = localStorage.getItem(`userData_${selectedAppointment.userId}`);
       if (userData) {
         const user = JSON.parse(userData);
+        let updatedUser = {...user};
         
-        if (user.serviceProgress && Array.isArray(user.serviceProgress)) {
-          const progressIndex = user.serviceProgress.findIndex(
+        // Handle service progress update
+        if (updatedUser.serviceProgress && Array.isArray(updatedUser.serviceProgress)) {
+          const progressIndex = updatedUser.serviceProgress.findIndex(
             (p: any) => p.appointmentId === selectedAppointment.id
           );
           
           if (progressIndex >= 0) {
-            user.serviceProgress[progressIndex] = {
-              ...user.serviceProgress[progressIndex],
+            // Update existing progress
+            updatedUser.serviceProgress[progressIndex] = {
+              ...updatedUser.serviceProgress[progressIndex],
               progress,
               tasks: updatedTasks
             };
           } else {
-            user.serviceProgress.push({
+            // Add new progress entry
+            updatedUser.serviceProgress.push({
               appointmentId: selectedAppointment.id,
               vehicleId: selectedAppointment.vehicleId,
               progress,
@@ -504,7 +526,8 @@ const Admin = () => {
             });
           }
         } else {
-          user.serviceProgress = [{
+          // Create new progress array
+          updatedUser.serviceProgress = [{
             appointmentId: selectedAppointment.id,
             vehicleId: selectedAppointment.vehicleId,
             progress,
@@ -512,30 +535,21 @@ const Admin = () => {
           }];
         }
         
+        // Update appointment status if service is completed
         if (progress >= 100) {
-          if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
-            user.upcomingServices = user.upcomingServices.map((service: any) => 
+          if (updatedUser.upcomingServices && Array.isArray(updatedUser.upcomingServices)) {
+            updatedUser.upcomingServices = updatedUser.upcomingServices.map((service: any) => 
               service.id === selectedAppointment.id ? {...service, status: "Completed"} : service
             );
           }
           
+          // Update local state for appointments
           setAppointments(prev => prev.map(a => 
             a.id === selectedAppointment.id ? {...a, status: "Completed"} : a
           ));
         }
         
-        localStorage.setItem(`userData_${selectedAppointment.userId}`, JSON.stringify(user));
-        
-        setServiceProgress(prev => ({
-          ...prev,
-          [selectedAppointment.id]: {
-            progress,
-            tasks: updatedTasks,
-            vehicleId: selectedAppointment.vehicleId,
-            userId: selectedAppointment.userId
-          }
-        }));
-        
+        // Add notification for progress update
         const newNotification = {
           id: Date.now(),
           message: `Your service progress has been updated`,
@@ -547,8 +561,21 @@ const Admin = () => {
           }
         };
         
-        user.notifications = [...(user.notifications || []), newNotification];
-        localStorage.setItem(`userData_${selectedAppointment.userId}`, JSON.stringify(user));
+        updatedUser.notifications = [...(updatedUser.notifications || []), newNotification];
+        
+        // Save all changes back to localStorage
+        localStorage.setItem(`userData_${selectedAppointment.userId}`, JSON.stringify(updatedUser));
+        
+        // Update local state for service progress
+        setServiceProgress(prev => ({
+          ...prev,
+          [selectedAppointment.id]: {
+            progress,
+            tasks: updatedTasks,
+            vehicleId: selectedAppointment.vehicleId,
+            userId: selectedAppointment.userId
+          }
+        }));
         
         toast({
           title: "Progress Updated",

@@ -1,6 +1,5 @@
-
 import { useState, useRef, ChangeEvent, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,7 +60,9 @@ const ImageManagement = () => {
       if (key && key.startsWith('userData_')) {
         try {
           const userData = JSON.parse(localStorage.getItem(key) || '{}');
-          users.push(userData);
+          if (userData.id && !userData.id.includes('admin')) {
+            users.push(userData);
+          }
         } catch (error) {
           console.error("Error parsing user data:", error);
         }
@@ -103,6 +104,9 @@ const ImageManagement = () => {
       
       // Force a refresh on any loaded ServiceProgress components by setting a flag
       localStorage.setItem('imageUpdatedTimestamp', Date.now().toString());
+      
+      // Trigger a storage event to notify other components
+      window.dispatchEvent(new Event('storage'));
     } catch (error) {
       console.error("Error saving images to storage:", error);
     }
