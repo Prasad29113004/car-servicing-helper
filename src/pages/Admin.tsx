@@ -9,15 +9,85 @@ import Footer from "@/components/Footer";
 import RemindersSection from "@/components/admin/RemindersSection";
 import ImageManagement from "@/components/admin/ImageManagement";
 import InvoiceManagement from "@/components/admin/InvoiceManagement";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { ServiceTask } from "@/components/ServiceProgress";
+
+interface Vehicle {
+  id: string;
+  year: string;
+  make: string;
+  model: string;
+  licensePlate: string;
+}
+
+interface Appointment {
+  id: string;
+  service: string;
+  date: string;
+  time: string;
+  amount: string;
+  status: string;
+  vehicleId: string;
+  userId: string;
+  customerName?: string;
+}
 
 const Admin = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [vehicles, setVehicles] = useState<{[key: string]: Vehicle}>({});
+  const [customers, setCustomers] = useState<{[key: string]: string}>({});
+  const [serviceProgress, setServiceProgress] = useState<{
+    [key: string]: {
+      progress: number;
+      tasks: ServiceTask[];
+      vehicleId: string;
+    }
+  }>({});
+  
+  // Dialog state
+  const [editAppointmentId, setEditAppointmentId] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editStatus, setEditStatus] = useState("");
+  
+  // Progress update dialog
+  const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [progressTasks, setProgressTasks] = useState<ServiceTask[]>([]);
+  const [taskStatusUpdates, setTaskStatusUpdates] = useState<{[taskId: string]: string}>({});
 
   useEffect(() => {
     checkAdminStatus();
-  }, []);
+    if (isAdmin) {
+      loadAllAppointments();
+    }
+  }, [isAdmin]);
 
   const checkAdminStatus = () => {
     const userId = localStorage.getItem("userId");
@@ -69,6 +139,458 @@ const Admin = () => {
     }
   };
 
+  const loadAllAppointments = () => {
+    // Get all users from localStorage
+    const userIds: string[] = [];
+    const allVehicles: {[key: string]: Vehicle} = {};
+    const allCustomers: {[key: string]: string} = {};
+    const allAppointments: Appointment[] = [];
+    const allProgress: {[key: string]: any} = {};
+    
+    // Get all keys from localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('userData_') && !key.includes('admin')) {
+        const userId = key.replace('userData_', '');
+        userIds.push(userId);
+      }
+    }
+    
+    // Process each user's data
+    userIds.forEach(userId => {
+      try {
+        const userData = localStorage.getItem(`userData_${userId}`);
+        if (userData) {
+          const user = JSON.parse(userData);
+          
+          // Store customer name
+          if (user.fullName) {
+            allCustomers[userId] = user.fullName;
+          }
+          
+          // Store vehicles
+          if (user.vehicles && Array.isArray(user.vehicles)) {
+            user.vehicles.forEach((vehicle: Vehicle) => {
+              allVehicles[vehicle.id] = vehicle;
+            });
+          }
+          
+          // Store appointments
+          if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
+            user.upcomingServices.forEach((appointment: Appointment) => {
+              allAppointments.push({
+                ...appointment,
+                userId: userId,
+                customerName: user.fullName || "Unknown Customer"
+              });
+            });
+          }
+          
+          // Store service progress
+          if (user.serviceProgress && Array.isArray(user.serviceProgress)) {
+            user.serviceProgress.forEach((progress: any) => {
+              allProgress[progress.appointmentId] = {
+                progress: progress.progress,
+                tasks: progress.tasks,
+                vehicleId: progress.vehicleId,
+                userId: userId
+              };
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error loading user data for ${userId}:`, error);
+      }
+    });
+    
+    // Update state
+    setAppointments(allAppointments);
+    setVehicles(allVehicles);
+    setCustomers(allCustomers);
+    setServiceProgress(allProgress);
+  };
+
+  const handleEditStatus = (appointmentId: string, currentStatus: string) => {
+    setEditAppointmentId(appointmentId);
+    setEditStatus(currentStatus);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleStatusUpdate = () => {
+    const appointment = appointments.find(a => a.id === editAppointmentId);
+    
+    if (!appointment || !appointment.userId) {
+      toast({
+        title: "Error",
+        description: "Appointment information not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Get user data
+      const userData = localStorage.getItem(`userData_${appointment.userId}`);
+      if (userData) {
+        const user = JSON.parse(userData);
+        
+        // Update appointment status
+        if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
+          const updatedServices = user.upcomingServices.map((service: any) => {
+            if (service.id === editAppointmentId) {
+              return {
+                ...service,
+                status: editStatus
+              };
+            }
+            return service;
+          });
+          
+          // Save updated user data back to localStorage
+          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify({
+            ...user,
+            upcomingServices: updatedServices
+          }));
+          
+          // Also update local state
+          setAppointments(prevAppointments => 
+            prevAppointments.map(a => 
+              a.id === editAppointmentId ? {...a, status: editStatus} : a
+            )
+          );
+          
+          // Create progress entry if status is "In Progress" and one doesn't already exist
+          if (editStatus === "In Progress" && !serviceProgress[editAppointmentId]) {
+            const defaultTasks: ServiceTask[] = [
+              {
+                id: `task-${Date.now()}-1`,
+                title: "Vehicle Inspection",
+                status: "in-progress",
+                description: "Initial inspection of the vehicle"
+              },
+              {
+                id: `task-${Date.now()}-2`,
+                title: appointment.service.includes("Oil Change") ? "Oil Change" : 
+                      appointment.service.includes("Wheel") ? "Wheel Service" : "Service Work",
+                status: "pending",
+                description: "Main service work"
+              },
+              {
+                id: `task-${Date.now()}-3`,
+                title: "Final Inspection",
+                status: "pending",
+                description: "Final quality check"
+              }
+            ];
+            
+            // Create a new progress entry
+            const newProgress = {
+              appointmentId: editAppointmentId,
+              vehicleId: appointment.vehicleId,
+              progress: 15, // Start with some progress
+              tasks: defaultTasks
+            };
+            
+            // Add to user's data
+            const updatedUserData = {
+              ...user,
+              serviceProgress: [...(user.serviceProgress || []), newProgress]
+            };
+            
+            localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUserData));
+            
+            // Update local state
+            setServiceProgress(prev => ({
+              ...prev,
+              [editAppointmentId]: {
+                progress: 15,
+                tasks: defaultTasks,
+                vehicleId: appointment.vehicleId,
+                userId: appointment.userId
+              }
+            }));
+          }
+          
+          // Add notification to user account
+          const newNotification = {
+            id: Date.now(),
+            message: `Your appointment status has been updated to ${editStatus}`,
+            date: new Date().toISOString(),
+            read: false,
+            details: {
+              type: "appointment",
+              appointmentId: editAppointmentId
+            }
+          };
+          
+          user.notifications = [...(user.notifications || []), newNotification];
+          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(user));
+          
+          toast({
+            title: "Status Updated",
+            description: `Appointment status has been updated to ${editStatus}`
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating appointment status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update appointment status",
+        variant: "destructive"
+      });
+    }
+    
+    setIsEditDialogOpen(false);
+  };
+
+  const handleCancelAppointment = (appointmentId: string) => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    
+    if (!appointment || !appointment.userId) {
+      toast({
+        title: "Error",
+        description: "Appointment information not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Get user data
+      const userData = localStorage.getItem(`userData_${appointment.userId}`);
+      if (userData) {
+        const user = JSON.parse(userData);
+        
+        // Remove this appointment from user data
+        if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
+          const updatedServices = user.upcomingServices.filter(
+            (service: any) => service.id !== appointmentId
+          );
+          
+          // Save updated user data back to localStorage
+          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify({
+            ...user,
+            upcomingServices: updatedServices
+          }));
+          
+          // Also update local state
+          setAppointments(prevAppointments => 
+            prevAppointments.filter(a => a.id !== appointmentId)
+          );
+          
+          // Add notification to user account
+          const newNotification = {
+            id: Date.now(),
+            message: `Your appointment has been cancelled`,
+            date: new Date().toISOString(),
+            read: false,
+            details: {
+              type: "cancellation"
+            }
+          };
+          
+          user.notifications = [...(user.notifications || []), newNotification];
+          localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(user));
+          
+          toast({
+            title: "Appointment Cancelled",
+            description: `The appointment has been cancelled`
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error cancelling appointment:", error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel appointment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateProgress = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    
+    // Get the current progress data
+    const progressData = serviceProgress[appointment.id];
+    if (progressData) {
+      setProgressTasks([...progressData.tasks]);
+      
+      // Initialize task status updates
+      const initialStatuses: {[taskId: string]: string} = {};
+      progressData.tasks.forEach(task => {
+        initialStatuses[task.id] = task.status;
+      });
+      setTaskStatusUpdates(initialStatuses);
+    } else {
+      // Create default tasks if no progress exists yet
+      const defaultTasks: ServiceTask[] = [
+        {
+          id: `task-${Date.now()}-1`,
+          title: "Vehicle Inspection",
+          status: "pending",
+          description: "Initial inspection of the vehicle"
+        },
+        {
+          id: `task-${Date.now()}-2`,
+          title: appointment.service.includes("Oil Change") ? "Oil Change" : 
+                appointment.service.includes("Wheel") ? "Wheel Service" : "Service Work",
+          status: "pending",
+          description: "Main service work"
+        },
+        {
+          id: `task-${Date.now()}-3`,
+          title: "Final Inspection",
+          status: "pending",
+          description: "Final quality check"
+        }
+      ];
+      setProgressTasks(defaultTasks);
+      
+      // Initialize task status updates
+      const initialStatuses: {[taskId: string]: string} = {};
+      defaultTasks.forEach(task => {
+        initialStatuses[task.id] = task.status;
+      });
+      setTaskStatusUpdates(initialStatuses);
+    }
+    
+    setIsProgressDialogOpen(true);
+  };
+
+  const updateTaskStatus = (taskId: string, status: string) => {
+    setTaskStatusUpdates(prev => ({
+      ...prev,
+      [taskId]: status
+    }));
+  };
+
+  const calculateProgress = (tasks: ServiceTask[]): number => {
+    if (!tasks.length) return 0;
+    
+    const completedCount = tasks.filter(task => task.status === "completed").length;
+    const inProgressCount = tasks.filter(task => task.status === "in-progress").length;
+    
+    return Math.round((completedCount / tasks.length) * 100 + (inProgressCount / tasks.length) * 30);
+  };
+
+  const saveProgressUpdates = () => {
+    if (!selectedAppointment) return;
+    
+    try {
+      // Update tasks with new statuses
+      const updatedTasks = progressTasks.map(task => ({
+        ...task,
+        status: taskStatusUpdates[task.id] || task.status,
+        ...(taskStatusUpdates[task.id] === "completed" ? {
+          completedDate: new Date().toISOString().split('T')[0],
+          technician: "Admin Staff"
+        } : {})
+      }));
+      
+      // Calculate overall progress
+      const progress = calculateProgress(updatedTasks);
+      
+      // Get user data
+      const userData = localStorage.getItem(`userData_${selectedAppointment.userId}`);
+      if (userData) {
+        const user = JSON.parse(userData);
+        
+        // Check if service progress already exists
+        if (user.serviceProgress && Array.isArray(user.serviceProgress)) {
+          const progressIndex = user.serviceProgress.findIndex(
+            (p: any) => p.appointmentId === selectedAppointment.id
+          );
+          
+          if (progressIndex >= 0) {
+            // Update existing progress
+            user.serviceProgress[progressIndex] = {
+              ...user.serviceProgress[progressIndex],
+              progress,
+              tasks: updatedTasks
+            };
+          } else {
+            // Create new progress entry
+            user.serviceProgress.push({
+              appointmentId: selectedAppointment.id,
+              vehicleId: selectedAppointment.vehicleId,
+              progress,
+              tasks: updatedTasks
+            });
+          }
+        } else {
+          // Initialize service progress array
+          user.serviceProgress = [{
+            appointmentId: selectedAppointment.id,
+            vehicleId: selectedAppointment.vehicleId,
+            progress,
+            tasks: updatedTasks
+          }];
+        }
+        
+        // Update appointment status if all tasks are completed
+        if (progress >= 100) {
+          if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
+            user.upcomingServices = user.upcomingServices.map((service: any) => 
+              service.id === selectedAppointment.id ? {...service, status: "Completed"} : service
+            );
+          }
+        }
+        
+        // Save updated user data
+        localStorage.setItem(`userData_${selectedAppointment.userId}`, JSON.stringify(user));
+        
+        // Update local state
+        setServiceProgress(prev => ({
+          ...prev,
+          [selectedAppointment.id]: {
+            progress,
+            tasks: updatedTasks,
+            vehicleId: selectedAppointment.vehicleId,
+            userId: selectedAppointment.userId
+          }
+        }));
+        
+        // Update appointment status in local state if needed
+        if (progress >= 100) {
+          setAppointments(prev => prev.map(a => 
+            a.id === selectedAppointment.id ? {...a, status: "Completed"} : a
+          ));
+        }
+        
+        // Add notification to user account
+        const newNotification = {
+          id: Date.now(),
+          message: `Your service progress has been updated`,
+          date: new Date().toISOString(),
+          read: false,
+          details: {
+            type: "progress",
+            appointmentId: selectedAppointment.id
+          }
+        };
+        
+        user.notifications = [...(user.notifications || []), newNotification];
+        localStorage.setItem(`userData_${selectedAppointment.userId}`, JSON.stringify(user));
+        
+        toast({
+          title: "Progress Updated",
+          description: "Service progress has been successfully updated"
+        });
+      }
+    } catch (error) {
+      console.error("Error updating service progress:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update service progress",
+        variant: "destructive"
+      });
+    }
+    
+    setIsProgressDialogOpen(false);
+  };
+
   if (!isAdmin) {
     return null;
   }
@@ -100,11 +622,17 @@ const Admin = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Total Bookings</p>
-                    <p className="text-2xl font-bold">87</p>
+                    <p className="text-2xl font-bold">{appointments.length}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">This Month</p>
-                    <p className="text-2xl font-bold">12</p>
+                    <p className="text-2xl font-bold">
+                      {appointments.filter(a => {
+                        const date = new Date(a.date);
+                        const currentMonth = new Date().getMonth();
+                        return date.getMonth() === currentMonth;
+                      }).length}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -115,11 +643,25 @@ const Admin = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Total Revenue</p>
-                    <p className="text-2xl font-bold">₹1,24,500</p>
+                    <p className="text-2xl font-bold">
+                      ₹{appointments.reduce((acc, curr) => {
+                        const amount = parseInt(curr.amount.replace(/[^0-9]/g, '')) || 0;
+                        return acc + amount;
+                      }, 0).toLocaleString('en-IN')}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">This Month</p>
-                    <p className="text-2xl font-bold">₹32,400</p>
+                    <p className="text-2xl font-bold">
+                      ₹{appointments.filter(a => {
+                        const date = new Date(a.date);
+                        const currentMonth = new Date().getMonth();
+                        return date.getMonth() === currentMonth;
+                      }).reduce((acc, curr) => {
+                        const amount = parseInt(curr.amount.replace(/[^0-9]/g, '')) || 0;
+                        return acc + amount;
+                      }, 0).toLocaleString('en-IN')}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -130,11 +672,13 @@ const Admin = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Total Customers</p>
-                    <p className="text-2xl font-bold">45</p>
+                    <p className="text-2xl font-bold">{Object.keys(customers).length}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">New This Month</p>
-                    <p className="text-2xl font-bold">8</p>
+                    <p className="text-sm text-gray-500">Active Services</p>
+                    <p className="text-2xl font-bold">
+                      {appointments.filter(a => a.status === "In Progress").length}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -176,160 +720,145 @@ const Admin = () => {
           <TabsContent value="appointments">
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-xl font-medium mb-4">Manage Appointments</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="border p-2 text-left">ID</th>
-                      <th className="border p-2 text-left">Customer</th>
-                      <th className="border p-2 text-left">Service</th>
-                      <th className="border p-2 text-left">Date & Time</th>
-                      <th className="border p-2 text-left">Vehicle</th>
-                      <th className="border p-2 text-left">Status</th>
-                      <th className="border p-2 text-left">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="border p-2">AP-001</td>
-                      <td className="border p-2">Amit Kumar</td>
-                      <td className="border p-2">Full Service</td>
-                      <td className="border p-2">2024-04-10 10:00 AM</td>
-                      <td className="border p-2">Maruti Swift (KA-01-1234)</td>
-                      <td className="border p-2"><span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Confirmed</span></td>
-                      <td className="border p-2 space-x-2">
-                        <Button variant="outline" size="sm">Edit</Button>
-                        <Button variant="ghost" size="sm" className="text-red-500">Cancel</Button>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border p-2">AP-002</td>
-                      <td className="border p-2">Priya Sharma</td>
-                      <td className="border p-2">Oil Change</td>
-                      <td className="border p-2">2024-04-11 09:30 AM</td>
-                      <td className="border p-2">Honda City (KA-02-5678)</td>
-                      <td className="border p-2"><span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Pending</span></td>
-                      <td className="border p-2 space-x-2">
-                        <Button variant="outline" size="sm">Edit</Button>
-                        <Button variant="ghost" size="sm" className="text-red-500">Cancel</Button>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border p-2">AP-003</td>
-                      <td className="border p-2">Rahul Verma</td>
-                      <td className="border p-2">Wheel Alignment</td>
-                      <td className="border p-2">2024-04-12 02:00 PM</td>
-                      <td className="border p-2">Hyundai i20 (KA-03-4321)</td>
-                      <td className="border p-2"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">In Progress</span></td>
-                      <td className="border p-2 space-x-2">
-                        <Button variant="outline" size="sm">Edit</Button>
-                        <Button variant="ghost" size="sm" className="text-red-500">Cancel</Button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-4 flex justify-between">
-                <Button variant="outline">Previous</Button>
-                <div className="flex items-center space-x-1">
-                  <Button variant="outline" size="sm" className="w-8 h-8 p-0">1</Button>
-                  <Button variant="ghost" size="sm" className="w-8 h-8 p-0">2</Button>
-                  <Button variant="ghost" size="sm" className="w-8 h-8 p-0">3</Button>
+              {appointments.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>ID</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Service</TableHead>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Vehicle</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {appointments.map((appointment) => {
+                        const vehicle = vehicles[appointment.vehicleId];
+                        return (
+                          <TableRow key={appointment.id}>
+                            <TableCell>{appointment.id}</TableCell>
+                            <TableCell>{appointment.customerName || customers[appointment.userId] || "Unknown"}</TableCell>
+                            <TableCell>{appointment.service}</TableCell>
+                            <TableCell>{appointment.date} {appointment.time}</TableCell>
+                            <TableCell>
+                              {vehicle ? 
+                                `${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})` : 
+                                "Unknown Vehicle"}
+                            </TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded-full ${
+                                appointment.status === "Confirmed" ? "bg-green-100 text-green-800" :
+                                appointment.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
+                                appointment.status === "In Progress" ? "bg-blue-100 text-blue-800" :
+                                appointment.status === "Completed" ? "bg-purple-100 text-purple-800" :
+                                "bg-gray-100 text-gray-800"
+                              }`}>
+                                {appointment.status}
+                              </span>
+                            </TableCell>
+                            <TableCell className="space-x-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleEditStatus(appointment.id, appointment.status)}
+                              >
+                                Edit
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-500"
+                                onClick={() => handleCancelAppointment(appointment.id)}
+                              >
+                                Cancel
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
-                <Button variant="outline">Next</Button>
-              </div>
+              ) : (
+                <div className="py-10 text-center">
+                  <p className="text-gray-500">No appointments found. Customers' appointments will appear here.</p>
+                </div>
+              )}
             </div>
           </TabsContent>
           
           <TabsContent value="progress">
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-xl font-medium mb-4">Service Progress</h3>
-              <div className="space-y-6">
-                <div className="border rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-lg font-medium">Maruti Swift (KA-01-1234) - Full Service</h4>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">In Progress</span>
-                  </div>
-                  <p className="mb-2">Customer: Amit Kumar</p>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Vehicle Inspection</span>
-                      <span className="text-sm">Completed</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "100%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Oil Change</span>
-                      <span className="text-sm">Completed</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "100%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Filter Replacement</span>
-                      <span className="text-sm">In Progress</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "60%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Final Inspection</span>
-                      <span className="text-sm">Pending</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: "0%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button>Update Progress</Button>
-                  </div>
+              {appointments.filter(a => a.status === "In Progress" || a.status === "Completed").length > 0 ? (
+                <div className="space-y-6">
+                  {appointments
+                    .filter(a => a.status === "In Progress" || a.status === "Completed")
+                    .map(appointment => {
+                      const vehicle = vehicles[appointment.vehicleId];
+                      const progressData = serviceProgress[appointment.id];
+                      const progress = progressData?.progress || 0;
+                      
+                      return (
+                        <div key={appointment.id} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-lg font-medium">
+                              {vehicle ? `${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})` : "Unknown Vehicle"} - {appointment.service}
+                            </h4>
+                            <span className={`px-2 py-1 rounded-full ${
+                              appointment.status === "Completed" ? "bg-green-100 text-green-800" :
+                              "bg-blue-100 text-blue-800"
+                            }`}>
+                              {appointment.status}
+                            </span>
+                          </div>
+                          <p className="mb-2">Customer: {appointment.customerName || customers[appointment.userId] || "Unknown"}</p>
+                          
+                          {progressData && progressData.tasks ? (
+                            <>
+                              {progressData.tasks.map((task, index) => (
+                                <div key={task.id} className="mb-4">
+                                  <div className="flex justify-between mb-1">
+                                    <span className="text-sm">{task.title}</span>
+                                    <span className="text-sm">
+                                      {task.status === "completed" ? "Completed" : 
+                                       task.status === "in-progress" ? "In Progress" : "Pending"}
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div className={`h-2 rounded-full ${
+                                      task.status === "completed" ? "bg-green-600" : 
+                                      task.status === "in-progress" ? "bg-blue-600" : "bg-gray-300"
+                                    }`} style={{ 
+                                      width: task.status === "completed" ? "100%" : 
+                                             task.status === "in-progress" ? "60%" : "0%" 
+                                    }}></div>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <p className="text-gray-500 mb-2">No progress data available</p>
+                          )}
+                          
+                          <div className="mt-4">
+                            <Button onClick={() => handleUpdateProgress(appointment)}>
+                              Update Progress
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  }
                 </div>
-
-                <div className="border rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="text-lg font-medium">Honda City (KA-02-5678) - Oil Change</h4>
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">Completed</span>
-                  </div>
-                  <p className="mb-2">Customer: Priya Sharma</p>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Vehicle Inspection</span>
-                      <span className="text-sm">Completed</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-600 h-2 rounded-full" style={{ width: "100%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Oil Change</span>
-                      <span className="text-sm">Completed</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-600 h-2 rounded-full" style={{ width: "100%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm">Final Inspection</span>
-                      <span className="text-sm">Completed</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div className="bg-green-600 h-2 rounded-full" style={{ width: "100%" }}></div>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Button variant="outline">View Details</Button>
-                  </div>
+              ) : (
+                <div className="py-10 text-center">
+                  <p className="text-gray-500">No active services. Services in progress will appear here.</p>
                 </div>
-              </div>
+              )}
             </div>
           </TabsContent>
 
@@ -347,6 +876,81 @@ const Admin = () => {
         </Tabs>
       </div>
       <Footer />
+      
+      {/* Edit Appointment Status Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Appointment Status</DialogTitle>
+            <DialogDescription>
+              Change the status of this appointment
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select value={editStatus} onValueChange={setEditStatus}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="Confirmed">Confirmed</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="Cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleStatusUpdate}>Update Status</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Update Service Progress Dialog */}
+      <Dialog open={isProgressDialogOpen} onOpenChange={setIsProgressDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Update Service Progress</DialogTitle>
+            <DialogDescription>
+              Update the status of each task in this service
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {progressTasks.map((task) => (
+              <div key={task.id} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="font-medium">{task.title}</p>
+                  <Select 
+                    value={taskStatusUpdates[task.id] || task.status} 
+                    onValueChange={(value) => updateTaskStatus(task.id, value)}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {task.description && (
+                  <p className="text-sm text-gray-500">{task.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={saveProgressUpdates}>Save Progress</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
