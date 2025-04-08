@@ -99,7 +99,10 @@ const ImageManagement = () => {
       // This ensures the data is available to the customer dashboard
       localStorage.setItem('sharedServiceImages', JSON.stringify(sharedImages));
       
-      console.log("Images saved to storage:", sharedImages);
+      console.log("Images saved to storage successfully:", sharedImages);
+      
+      // Force a refresh on any loaded ServiceProgress components by setting a flag
+      localStorage.setItem('imageUpdatedTimestamp', Date.now().toString());
     } catch (error) {
       console.error("Error saving images to storage:", error);
     }
@@ -239,7 +242,7 @@ const ImageManagement = () => {
           {filteredImages.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredImages.map((image) => (
-                <Card key={image.id} className="overflow-hidden">
+                <Card key={`image-${image.id}`} className="overflow-hidden">
                   <div 
                     className="aspect-square relative cursor-pointer"
                     onClick={() => openImageViewer(image)}

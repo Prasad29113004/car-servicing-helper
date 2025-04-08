@@ -140,14 +140,17 @@ const Admin = () => {
   };
 
   const loadAllAppointments = () => {
-    // Get all users from localStorage
     const userIds: string[] = [];
     const allVehicles: {[key: string]: Vehicle} = {};
     const allCustomers: {[key: string]: string} = {};
     const allAppointments: Appointment[] = [];
-    const allProgress: {[key: string]: any} = {};
+    const allProgress: {[key: string]: {
+      progress: number;
+      tasks: ServiceTask[];
+      vehicleId: string;
+      userId?: string;
+    }} = {};
     
-    // Get all keys from localStorage
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('userData_') && !key.includes('admin')) {
@@ -156,26 +159,22 @@ const Admin = () => {
       }
     }
     
-    // Process each user's data
     userIds.forEach(userId => {
       try {
         const userData = localStorage.getItem(`userData_${userId}`);
         if (userData) {
           const user = JSON.parse(userData);
           
-          // Store customer name
           if (user.fullName) {
             allCustomers[userId] = user.fullName;
           }
           
-          // Store vehicles
           if (user.vehicles && Array.isArray(user.vehicles)) {
             user.vehicles.forEach((vehicle: Vehicle) => {
               allVehicles[vehicle.id] = vehicle;
             });
           }
           
-          // Store appointments
           if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
             user.upcomingServices.forEach((appointment: Appointment) => {
               allAppointments.push({
@@ -186,12 +185,19 @@ const Admin = () => {
             });
           }
           
-          // Store service progress
           if (user.serviceProgress && Array.isArray(user.serviceProgress)) {
             user.serviceProgress.forEach((progress: any) => {
+              const typedTasks: ServiceTask[] = Array.isArray(progress.tasks) ? 
+                progress.tasks.map((task: any) => ({
+                  ...task,
+                  status: (task.status === "in-progress" || task.status === "pending" || task.status === "completed") 
+                    ? task.status as "in-progress" | "pending" | "completed"
+                    : "pending"
+                })) : [];
+              
               allProgress[progress.appointmentId] = {
                 progress: progress.progress,
-                tasks: progress.tasks,
+                tasks: typedTasks,
                 vehicleId: progress.vehicleId,
                 userId: userId
               };
@@ -203,11 +209,13 @@ const Admin = () => {
       }
     });
     
-    // Update state
     setAppointments(allAppointments);
     setVehicles(allVehicles);
     setCustomers(allCustomers);
     setServiceProgress(allProgress);
+    
+    console.log("Loaded service progress:", allProgress);
+    console.log("Loaded appointments:", allAppointments);
   };
 
   const handleEditStatus = (appointmentId: string, currentStatus: string) => {
@@ -229,12 +237,10 @@ const Admin = () => {
     }
     
     try {
-      // Get user data
       const userData = localStorage.getItem(`userData_${appointment.userId}`);
       if (userData) {
         const user = JSON.parse(userData);
         
-        // Update appointment status
         if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
           const updatedServices = user.upcomingServices.map((service: any) => {
             if (service.id === editAppointmentId) {
@@ -246,20 +252,17 @@ const Admin = () => {
             return service;
           });
           
-          // Save updated user data back to localStorage
           localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify({
             ...user,
             upcomingServices: updatedServices
           }));
           
-          // Also update local state
           setAppointments(prevAppointments => 
             prevAppointments.map(a => 
               a.id === editAppointmentId ? {...a, status: editStatus} : a
             )
           );
           
-          // Create progress entry if status is "In Progress" and one doesn't already exist
           if (editStatus === "In Progress" && !serviceProgress[editAppointmentId]) {
             const defaultTasks: ServiceTask[] = [
               {
@@ -283,15 +286,13 @@ const Admin = () => {
               }
             ];
             
-            // Create a new progress entry
             const newProgress = {
               appointmentId: editAppointmentId,
               vehicleId: appointment.vehicleId,
-              progress: 15, // Start with some progress
+              progress: 15,
               tasks: defaultTasks
             };
             
-            // Add to user's data
             const updatedUserData = {
               ...user,
               serviceProgress: [...(user.serviceProgress || []), newProgress]
@@ -299,7 +300,6 @@ const Admin = () => {
             
             localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUserData));
             
-            // Update local state
             setServiceProgress(prev => ({
               ...prev,
               [editAppointmentId]: {
@@ -311,7 +311,6 @@ const Admin = () => {
             }));
           }
           
-          // Add notification to user account
           const newNotification = {
             id: Date.now(),
             message: `Your appointment status has been updated to ${editStatus}`,
@@ -357,29 +356,24 @@ const Admin = () => {
     }
     
     try {
-      // Get user data
       const userData = localStorage.getItem(`userData_${appointment.userId}`);
       if (userData) {
         const user = JSON.parse(userData);
         
-        // Remove this appointment from user data
         if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
           const updatedServices = user.upcomingServices.filter(
             (service: any) => service.id !== appointmentId
           );
           
-          // Save updated user data back to localStorage
           localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify({
             ...user,
             upcomingServices: updatedServices
           }));
           
-          // Also update local state
           setAppointments(prevAppointments => 
             prevAppointments.filter(a => a.id !== appointmentId)
           );
           
-          // Add notification to user account
           const newNotification = {
             id: Date.now(),
             message: `Your appointment has been cancelled`,
@@ -412,19 +406,16 @@ const Admin = () => {
   const handleUpdateProgress = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     
-    // Get the current progress data
     const progressData = serviceProgress[appointment.id];
     if (progressData) {
       setProgressTasks([...progressData.tasks]);
       
-      // Initialize task status updates
       const initialStatuses: {[taskId: string]: "pending" | "in-progress" | "completed"} = {};
       progressData.tasks.forEach(task => {
         initialStatuses[task.id] = task.status;
       });
       setTaskStatusUpdates(initialStatuses);
     } else {
-      // Create default tasks if no progress exists yet
       const defaultTasks: ServiceTask[] = [
         {
           id: `task-${Date.now()}-1`,
@@ -448,7 +439,6 @@ const Admin = () => {
       ];
       setProgressTasks(defaultTasks);
       
-      // Initialize task status updates
       const initialStatuses: {[taskId: string]: "pending" | "in-progress" | "completed"} = {};
       defaultTasks.forEach(task => {
         initialStatuses[task.id] = task.status;
@@ -479,7 +469,6 @@ const Admin = () => {
     if (!selectedAppointment) return;
     
     try {
-      // Update tasks with new statuses
       const updatedTasks: ServiceTask[] = progressTasks.map(task => ({
         ...task,
         status: taskStatusUpdates[task.id] || task.status,
@@ -489,29 +478,24 @@ const Admin = () => {
         } : {})
       }));
       
-      // Calculate overall progress
       const progress = calculateProgress(updatedTasks);
       
-      // Get user data
       const userData = localStorage.getItem(`userData_${selectedAppointment.userId}`);
       if (userData) {
         const user = JSON.parse(userData);
         
-        // Check if service progress already exists
         if (user.serviceProgress && Array.isArray(user.serviceProgress)) {
           const progressIndex = user.serviceProgress.findIndex(
             (p: any) => p.appointmentId === selectedAppointment.id
           );
           
           if (progressIndex >= 0) {
-            // Update existing progress
             user.serviceProgress[progressIndex] = {
               ...user.serviceProgress[progressIndex],
               progress,
               tasks: updatedTasks
             };
           } else {
-            // Create new progress entry
             user.serviceProgress.push({
               appointmentId: selectedAppointment.id,
               vehicleId: selectedAppointment.vehicleId,
@@ -520,7 +504,6 @@ const Admin = () => {
             });
           }
         } else {
-          // Initialize service progress array
           user.serviceProgress = [{
             appointmentId: selectedAppointment.id,
             vehicleId: selectedAppointment.vehicleId,
@@ -529,19 +512,20 @@ const Admin = () => {
           }];
         }
         
-        // Update appointment status if all tasks are completed
         if (progress >= 100) {
           if (user.upcomingServices && Array.isArray(user.upcomingServices)) {
             user.upcomingServices = user.upcomingServices.map((service: any) => 
               service.id === selectedAppointment.id ? {...service, status: "Completed"} : service
             );
           }
+          
+          setAppointments(prev => prev.map(a => 
+            a.id === selectedAppointment.id ? {...a, status: "Completed"} : a
+          ));
         }
         
-        // Save updated user data
         localStorage.setItem(`userData_${selectedAppointment.userId}`, JSON.stringify(user));
         
-        // Update local state
         setServiceProgress(prev => ({
           ...prev,
           [selectedAppointment.id]: {
@@ -552,14 +536,6 @@ const Admin = () => {
           }
         }));
         
-        // Update appointment status in local state if needed
-        if (progress >= 100) {
-          setAppointments(prev => prev.map(a => 
-            a.id === selectedAppointment.id ? {...a, status: "Completed"} : a
-          ));
-        }
-        
-        // Add notification to user account
         const newNotification = {
           id: Date.now(),
           message: `Your service progress has been updated`,
@@ -738,7 +714,7 @@ const Admin = () => {
                       {appointments.map((appointment) => {
                         const vehicle = vehicles[appointment.vehicleId];
                         return (
-                          <TableRow key={appointment.id}>
+                          <TableRow key={`appointment-${appointment.id}`}>
                             <TableCell>{appointment.id}</TableCell>
                             <TableCell>{appointment.customerName || customers[appointment.userId] || "Unknown"}</TableCell>
                             <TableCell>{appointment.service}</TableCell>
@@ -803,7 +779,7 @@ const Admin = () => {
                       const progress = progressData?.progress || 0;
                       
                       return (
-                        <div key={appointment.id} className="border rounded-lg p-4">
+                        <div key={`progress-${appointment.id}`} className="border rounded-lg p-4">
                           <div className="flex justify-between items-center mb-2">
                             <h4 className="text-lg font-medium">
                               {vehicle ? `${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})` : "Unknown Vehicle"} - {appointment.service}
@@ -820,7 +796,7 @@ const Admin = () => {
                           {progressData && progressData.tasks ? (
                             <>
                               {progressData.tasks.map((task, index) => (
-                                <div key={task.id} className="mb-4">
+                                <div key={`task-${task.id}-${index}`} className="mb-4">
                                   <div className="flex justify-between mb-1">
                                     <span className="text-sm">{task.title}</span>
                                     <span className="text-sm">
@@ -877,7 +853,6 @@ const Admin = () => {
       </div>
       <Footer />
       
-      {/* Edit Appointment Status Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -909,7 +884,6 @@ const Admin = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Update Service Progress Dialog */}
       <Dialog open={isProgressDialogOpen} onOpenChange={setIsProgressDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

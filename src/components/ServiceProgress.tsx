@@ -33,16 +33,23 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string, customerId?: string}[]>([]);
   
-  useEffect(() => {
-    // Load shared images from localStorage
+  // Refresh images from localStorage
+  const loadSharedImages = () => {
     try {
       const storedImages = localStorage.getItem('sharedServiceImages');
       if (storedImages) {
-        setSharedImages(JSON.parse(storedImages));
+        const parsedImages = JSON.parse(storedImages);
+        console.log("ServiceProgress - loaded images from storage:", parsedImages);
+        setSharedImages(parsedImages);
       }
     } catch (error) {
       console.error("Error loading shared images:", error);
     }
+  };
+  
+  useEffect(() => {
+    // Load shared images from localStorage
+    loadSharedImages();
   }, []);
   
   const openImageDialog = (image: {url: string, title: string}) => {
@@ -165,7 +172,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                     )}
 
                     {/* Display shared images relevant to this task */}
-                    {filteredSharedImages.length > 0 && (
+                    {filteredSharedImages && filteredSharedImages.length > 0 && (
                       <div className="mt-3">
                         <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
