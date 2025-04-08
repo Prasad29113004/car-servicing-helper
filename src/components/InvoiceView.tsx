@@ -4,7 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, CreditCard } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
+import { useToast } from "@/hooks/use-toast";
 
 interface Invoice {
   invoiceNumber: string;
@@ -25,6 +27,9 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [showInvoice, setShowInvoice] = useState(false);
+  
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
   useEffect(() => {
     if (userId) {
@@ -51,6 +56,21 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
   const handleViewInvoice = (invoice: Invoice) => {
     setCurrentInvoice(invoice);
     setShowInvoice(true);
+  };
+
+  const handlePayInvoice = (invoice: Invoice) => {
+    // Redirect to payment page with invoice details
+    navigate('/payment', {
+      state: {
+        paymentInfo: {
+          invoiceNumber: invoice.invoiceNumber,
+          bookingId: invoice.bookingId,
+          services: invoice.services,
+          total: invoice.amount,
+          date: invoice.date,
+        }
+      }
+    });
   };
   
   const formatDate = (dateString: string) => {
@@ -104,14 +124,21 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(invoice.date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{invoice.amount}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <Badge variant={invoice.status === "Paid" ? "default" : "outline"}>
+                      <Badge variant={invoice.status === "Paid" ? "default" : "outline"} className={invoice.status === "Paid" ? "" : "text-amber-500 border-amber-500"}>
                         {invoice.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      <Button size="sm" variant="outline" onClick={() => handleViewInvoice(invoice)}>
-                        View
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => handleViewInvoice(invoice)}>
+                          View
+                        </Button>
+                        {invoice.status !== "Paid" && (
+                          <Button size="sm" variant="default" onClick={() => handlePayInvoice(invoice)}>
+                            Pay Now
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -197,10 +224,17 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                 <Button variant="outline" onClick={() => setShowInvoice(false)}>
                   Close
                 </Button>
-                <Button>
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PDF
-                </Button>
+                {currentInvoice.status !== "Paid" ? (
+                  <Button onClick={() => handlePayInvoice(currentInvoice)}>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Pay Now
+                  </Button>
+                ) : (
+                  <Button>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                )}
               </div>
             </>
           )}

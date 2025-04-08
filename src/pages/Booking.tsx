@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -65,7 +64,6 @@ const Booking = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Load user data if logged in
     const userId = localStorage.getItem("userId");
     if (userId) {
       const storedData = localStorage.getItem(`userData_${userId}`);
@@ -74,7 +72,6 @@ const Booking = () => {
           const parsedData = JSON.parse(storedData);
           setUserData(parsedData);
           
-          // Pre-fill user information
           setName(parsedData.fullName || "");
           setEmail(parsedData.email || "");
           setPhone(parsedData.phone || "");
@@ -129,7 +126,9 @@ const Booking = () => {
     if (step < 4) {
       setStep(step + 1);
     } else {
+      const bookingId = `BK${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
       const bookingData = {
+        id: bookingId,
         services: selectedServices.map(serviceId => {
           const service = services.find(s => s.id === serviceId);
           return service ? service.name : "";
@@ -145,24 +144,42 @@ const Booking = () => {
         licensePlate,
         additionalInfo,
         amount: getTotalPrice(),
-        paymentStatus: "Pending"
+        paymentStatus: "Pending",
+        status: "Scheduled",
+        createdAt: new Date().toISOString(),
       };
       
       localStorage.setItem("lastBooking", JSON.stringify(bookingData));
       
       const userId = localStorage.getItem("userId");
       if (userId) {
-        // If user is logged in, proceed to payment page
-        navigate('/payment', {
-          state: {
-            paymentInfo: {
-              bookingId: `BK${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`,
-              services: bookingData.services,
-              total: bookingData.amount,
-              date: bookingData.date,
-            }
-          }
+        const userBookingsKey = `bookings_${userId}`;
+        const existingBookings = localStorage.getItem(userBookingsKey);
+        const bookings = existingBookings ? JSON.parse(existingBookings) : [];
+        bookings.push(bookingData);
+        localStorage.setItem(userBookingsKey, JSON.stringify(bookings));
+        
+        const notificationsKey = `notifications_${userId}`;
+        const existingNotifications = localStorage.getItem(notificationsKey);
+        const notifications = existingNotifications ? JSON.parse(existingNotifications) : [];
+        notifications.push({
+          id: Date.now().toString(),
+          title: "Booking Confirmed",
+          message: `Your booking for ${bookingData.date} has been confirmed. We'll see you at ${time}!`,
+          date: new Date().toISOString(),
+          read: false,
+          type: "booking",
+          bookingId: bookingId,
         });
+        localStorage.setItem(notificationsKey, JSON.stringify(notifications));
+        
+        setTimeout(() => {
+          setBookingComplete(true);
+          toast({
+            title: "Booking Successful",
+            description: "You can view your booking details in the dashboard",
+          });
+        }, 1500);
       } else {
         setTimeout(() => {
           setBookingComplete(true);
@@ -225,7 +242,6 @@ const Booking = () => {
 
           {!bookingComplete ? (
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              {/* Progress Steps */}
               <div className="p-4 bg-gray-50 border-b">
                 <div className="flex justify-between">
                   <div className={`flex flex-col items-center ${step >= 1 ? "text-carservice-blue" : "text-gray-400"}`}>
@@ -523,6 +539,11 @@ const Booking = () => {
                       )}
                     </div>
                     
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-yellow-800 text-sm">
+                      <p className="font-medium">Payment Information</p>
+                      <p className="mt-1">Payment will be collected after your service is completed. You'll receive an invoice with payment instructions.</p>
+                    </div>
+                    
                     <div className="text-sm text-gray-500">
                       <p>By confirming this booking, you agree to our terms and conditions.</p>
                     </div>
@@ -564,13 +585,18 @@ const Booking = () => {
                   </div>
                 </div>
                 
+                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-yellow-800 text-sm mb-6 w-full max-w-md">
+                  <p className="font-medium">Payment Information</p>
+                  <p className="mt-1">Payment will be collected after your service is completed.</p>
+                </div>
+                
                 <p className="text-gray-500 mb-6">
                   We've sent a confirmation email to {email} with all the details.
                 </p>
                 
                 <div className="flex space-x-4">
                   <Button variant="outline" onClick={() => navigate("/login")}>
-                    Login to Pay
+                    {localStorage.getItem("userId") ? "View Dashboard" : "Login to Track"}
                   </Button>
                   <Button onClick={() => navigate("/")}>
                     Return to Home
