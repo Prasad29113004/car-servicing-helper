@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -68,6 +67,7 @@ const Admin = () => {
       progress: number;
       tasks: ServiceTask[];
       vehicleId: string;
+      userId?: string;
     }
   }>({});
   
@@ -80,7 +80,7 @@ const Admin = () => {
   const [isProgressDialogOpen, setIsProgressDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [progressTasks, setProgressTasks] = useState<ServiceTask[]>([]);
-  const [taskStatusUpdates, setTaskStatusUpdates] = useState<{[taskId: string]: string}>({});
+  const [taskStatusUpdates, setTaskStatusUpdates] = useState<{[taskId: string]: "pending" | "in-progress" | "completed"}>({});
 
   useEffect(() => {
     checkAdminStatus();
@@ -418,7 +418,7 @@ const Admin = () => {
       setProgressTasks([...progressData.tasks]);
       
       // Initialize task status updates
-      const initialStatuses: {[taskId: string]: string} = {};
+      const initialStatuses: {[taskId: string]: "pending" | "in-progress" | "completed"} = {};
       progressData.tasks.forEach(task => {
         initialStatuses[task.id] = task.status;
       });
@@ -449,7 +449,7 @@ const Admin = () => {
       setProgressTasks(defaultTasks);
       
       // Initialize task status updates
-      const initialStatuses: {[taskId: string]: string} = {};
+      const initialStatuses: {[taskId: string]: "pending" | "in-progress" | "completed"} = {};
       defaultTasks.forEach(task => {
         initialStatuses[task.id] = task.status;
       });
@@ -459,7 +459,7 @@ const Admin = () => {
     setIsProgressDialogOpen(true);
   };
 
-  const updateTaskStatus = (taskId: string, status: string) => {
+  const updateTaskStatus = (taskId: string, status: "pending" | "in-progress" | "completed") => {
     setTaskStatusUpdates(prev => ({
       ...prev,
       [taskId]: status
@@ -480,7 +480,7 @@ const Admin = () => {
     
     try {
       // Update tasks with new statuses
-      const updatedTasks = progressTasks.map(task => ({
+      const updatedTasks: ServiceTask[] = progressTasks.map(task => ({
         ...task,
         status: taskStatusUpdates[task.id] || task.status,
         ...(taskStatusUpdates[task.id] === "completed" ? {
@@ -925,7 +925,7 @@ const Admin = () => {
                   <p className="font-medium">{task.title}</p>
                   <Select 
                     value={taskStatusUpdates[task.id] || task.status} 
-                    onValueChange={(value) => updateTaskStatus(task.id, value)}
+                    onValueChange={(value: "pending" | "in-progress" | "completed") => updateTaskStatus(task.id, value)}
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue />
