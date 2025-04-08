@@ -46,10 +46,14 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
         const sortedInvoices = parsedInvoices.sort((a: Invoice, b: Invoice) => {
           return new Date(b.date).getTime() - new Date(a.date).getTime();
         });
+        
+        console.log("Loaded invoices for user", userId, ":", sortedInvoices);
         setInvoices(sortedInvoices);
       } catch (error) {
         console.error("Error parsing invoices:", error);
       }
+    } else {
+      console.log("No invoices found for user", userId);
     }
   };
   
@@ -118,8 +122,8 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {invoices.map((invoice) => (
-                  <tr key={invoice.invoiceNumber}>
+                {invoices.map((invoice, index) => (
+                  <tr key={`invoice-${index}-${invoice.invoiceNumber}`}>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.invoiceNumber}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{formatDate(invoice.date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{invoice.amount}</td>
@@ -192,7 +196,7 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                     </thead>
                     <tbody>
                       {currentInvoice.services.map((service, index) => (
-                        <tr key={index} className="border-b border-gray-200">
+                        <tr key={`service-${index}`} className="border-b border-gray-200">
                           <td className="py-2">{service}</td>
                           <td className="text-right py-2">-</td>
                         </tr>

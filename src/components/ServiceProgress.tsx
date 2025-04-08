@@ -51,9 +51,16 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
   };
 
   // Filter shared images based on userId if provided
-  const filteredSharedImages = sharedImages.filter(img => 
-    img.customerId === 'all' || img.customerId === userId
-  );
+  const filteredSharedImages = userId 
+    ? sharedImages.filter(img => 
+        img.customerId === 'all' || img.customerId === userId
+      )
+    : sharedImages;
+
+  console.log("ServiceProgress - userId:", userId);
+  console.log("ServiceProgress - filtered images:", filteredSharedImages);
+  console.log("ServiceProgress - tasks:", tasks);
+  console.log("ServiceProgress - all shared images:", sharedImages);
 
   return (
     <Card className="shadow-md">
@@ -138,7 +145,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                       <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {task.images.map((image, index) => (
                           <div 
-                            key={index} 
+                            key={`task-img-${index}`} 
                             className="relative group cursor-pointer"
                             onClick={() => openImageDialog(image)}
                           >

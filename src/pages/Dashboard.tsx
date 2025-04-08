@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle, User } from "lucide-react";
+import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle, User, RefreshCw } from "lucide-react";
 import { ServiceProgress, ServiceTask } from "@/components/ServiceProgress";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -75,117 +75,14 @@ const Dashboard = () => {
   const userId = localStorage.getItem("userId");
 
   useEffect(() => {
-    // Load user data from localStorage
-    if (userId) {
-      const storedData = localStorage.getItem(`userData_${userId}`);
-      if (storedData) {
-        const parsedData: UserData = JSON.parse(storedData);
-        setUserData(parsedData);
-        
-        // Calculate unread notifications
-        const unread = parsedData.notifications?.filter(n => !n.read).length || 0;
-        setUnreadCount(unread);
-      }
-    }
+    loadUserData();
 
     // Check for booking form data and update
     const bookingData = localStorage.getItem("lastBooking");
     if (bookingData) {
       try {
         const booking = JSON.parse(bookingData);
-        const userId = localStorage.getItem("userId");
-        
-        if (userId) {
-          // Get current user data
-          let userData: UserData;
-          const storedData = localStorage.getItem(`userData_${userId}`);
-          
-          if (storedData) {
-            userData = JSON.parse(storedData);
-          } else {
-            // Create new user data if none exists
-            userData = {
-              id: userId,
-              fullName: booking.name || "Guest",
-              email: booking.email || "",
-              phone: booking.phone || "",
-              vehicles: [],
-              upcomingServices: [],
-              notifications: [],
-              serviceProgress: []
-            };
-          }
-          
-          // Create vehicle if it doesn't exist
-          const vehicleId = `v-${Date.now()}`;
-          const newVehicle = {
-            id: vehicleId,
-            year: booking.carYear || "",
-            make: booking.carMake || "",
-            model: booking.carModel || "",
-            licensePlate: booking.licensePlate || `TMP-${Math.floor(Math.random() * 10000)}`,
-          };
-          
-          // Create service appointment
-          const appointmentId = `appt-${Date.now()}`;
-          const newAppointment = {
-            id: appointmentId,
-            service: Array.isArray(booking.services) ? booking.services.join(", ") : booking.services,
-            date: booking.date,
-            time: booking.time,
-            amount: booking.amount,
-            status: "Scheduled",
-            vehicleId: vehicleId,
-          };
-          
-          // Update user profile information if available
-          if (booking.name && booking.name.trim() !== "") {
-            userData.fullName = booking.name;
-          }
-          if (booking.email && booking.email.trim() !== "") {
-            userData.email = booking.email;
-          }
-          if (booking.phone && booking.phone.trim() !== "") {
-            userData.phone = booking.phone;
-          }
-
-          // Add notification about new booking
-          const newNotification = {
-            id: Date.now(),
-            message: `New appointment scheduled for ${newVehicle.year} ${newVehicle.make} ${newVehicle.model}`,
-            date: new Date().toISOString(),
-            read: false,
-            details: {
-              type: "appointment",
-              appointmentId: appointmentId,
-              vehicleId: vehicleId
-            }
-          };
-
-          // Update user data with new vehicle, appointment and notification
-          const updatedUserData = {
-            ...userData,
-            vehicles: [...(userData.vehicles || []), newVehicle],
-            upcomingServices: [...(userData.upcomingServices || []), newAppointment],
-            notifications: [...(userData.notifications || []), newNotification]
-          };
-
-          // Save updated user data
-          localStorage.setItem(`userData_${userId}`, JSON.stringify(updatedUserData));
-          
-          // Update state
-          setUserData(updatedUserData);
-          setUnreadCount((prev) => prev + 1);
-
-          // Display success toast
-          toast({
-            title: "Booking data processed",
-            description: "Your recent booking has been added to your account",
-          });
-
-          // Clear the booking data to prevent duplicates
-          localStorage.removeItem("lastBooking");
-        }
+        processNewBooking(booking);
       } catch (error) {
         console.error("Error processing booking data:", error);
         toast({
@@ -196,6 +93,120 @@ const Dashboard = () => {
       }
     }
   }, [toast]);
+
+  // Added a separate function to load user data
+  const loadUserData = () => {
+    if (userId) {
+      const storedData = localStorage.getItem(`userData_${userId}`);
+      if (storedData) {
+        const parsedData: UserData = JSON.parse(storedData);
+        setUserData(parsedData);
+        
+        // Calculate unread notifications
+        const unread = parsedData.notifications?.filter(n => !n.read).length || 0;
+        setUnreadCount(unread);
+        
+        console.log("Loaded user data:", parsedData);
+      }
+    }
+  };
+
+  // Added a separate function to process new bookings
+  const processNewBooking = (booking: any) => {
+    const userId = localStorage.getItem("userId");
+    
+    if (userId) {
+      // Get current user data
+      let userData: UserData;
+      const storedData = localStorage.getItem(`userData_${userId}`);
+      
+      if (storedData) {
+        userData = JSON.parse(storedData);
+      } else {
+        // Create new user data if none exists
+        userData = {
+          id: userId,
+          fullName: booking.name || "Guest",
+          email: booking.email || "",
+          phone: booking.phone || "",
+          vehicles: [],
+          upcomingServices: [],
+          notifications: [],
+          serviceProgress: []
+        };
+      }
+      
+      // Create vehicle if it doesn't exist
+      const vehicleId = `v-${Date.now()}`;
+      const newVehicle = {
+        id: vehicleId,
+        year: booking.carYear || "",
+        make: booking.carMake || "",
+        model: booking.carModel || "",
+        licensePlate: booking.licensePlate || `TMP-${Math.floor(Math.random() * 10000)}`,
+      };
+      
+      // Create service appointment
+      const appointmentId = `appt-${Date.now()}`;
+      const newAppointment = {
+        id: appointmentId,
+        service: Array.isArray(booking.services) ? booking.services.join(", ") : booking.services,
+        date: booking.date,
+        time: booking.time,
+        amount: booking.amount,
+        status: "Scheduled",
+        vehicleId: vehicleId,
+      };
+      
+      // Update user profile information if available
+      if (booking.name && booking.name.trim() !== "") {
+        userData.fullName = booking.name;
+      }
+      if (booking.email && booking.email.trim() !== "") {
+        userData.email = booking.email;
+      }
+      if (booking.phone && booking.phone.trim() !== "") {
+        userData.phone = booking.phone;
+      }
+
+      // Add notification about new booking
+      const newNotification = {
+        id: Date.now(),
+        message: `New appointment scheduled for ${newVehicle.year} ${newVehicle.make} ${newVehicle.model}`,
+        date: new Date().toISOString(),
+        read: false,
+        details: {
+          type: "appointment",
+          appointmentId: appointmentId,
+          vehicleId: vehicleId
+        }
+      };
+
+      // Update user data with new vehicle, appointment and notification
+      const updatedUserData = {
+        ...userData,
+        vehicles: [...(userData.vehicles || []), newVehicle],
+        upcomingServices: [...(userData.upcomingServices || []), newAppointment],
+        notifications: [...(userData.notifications || []), newNotification]
+      };
+
+      // Save updated user data
+      localStorage.setItem(`userData_${userId}`, JSON.stringify(updatedUserData));
+      
+      // Update state
+      setUserData(updatedUserData);
+      setUnreadCount((prev) => prev + 1);
+
+      // Display success toast
+      toast({
+        title: "Booking data processed",
+        description: "Your recent booking has been added to your account",
+      });
+
+      // Clear the booking data to prevent duplicates
+      localStorage.removeItem("lastBooking");
+    }
+  };
 
   // Handle viewing notification details
   const handleViewDetails = (notification: Notification) => {
@@ -251,6 +262,25 @@ const Dashboard = () => {
       return dateString;
     }
   };
+
+  // Refresh user data - useful for ensuring we have the latest service progress
+  const refreshUserData = () => {
+    loadUserData();
+    toast({
+      title: "Data refreshed",
+      description: "Latest service information loaded"
+    });
+  };
+  
+  // Added this effect to refresh data periodically 
+  useEffect(() => {
+    // Set up periodic refresh of user data to capture updates from admin
+    const refreshInterval = setInterval(() => {
+      loadUserData();
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -262,7 +292,10 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">Welcome back, {userData?.fullName || "Guest"}</h1>
               <p className="text-gray-600">Manage your vehicles and service history</p>
             </div>
-            <div>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={refreshUserData} title="Refresh Data">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
               <Button onClick={() => window.location.href = "/booking"}>
                 <Plus className="mr-1 h-4 w-4" />
                 Book Service

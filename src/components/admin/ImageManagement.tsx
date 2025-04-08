@@ -84,6 +84,7 @@ const ImageManagement = () => {
 
   const saveImagesToStorage = (updatedImages: ServiceImage[]) => {
     try {
+      // Save admin version
       localStorage.setItem('adminServiceImages', JSON.stringify(updatedImages));
       
       // Also save a simplified version for sharing with service progress
@@ -94,8 +95,11 @@ const ImageManagement = () => {
         customerId: img.customerId || 'all',
         customerName: img.customerName
       }));
+      
+      // This ensures the data is available to the customer dashboard
       localStorage.setItem('sharedServiceImages', JSON.stringify(sharedImages));
       
+      console.log("Images saved to storage:", sharedImages);
     } catch (error) {
       console.error("Error saving images to storage:", error);
     }
