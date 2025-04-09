@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +33,16 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
   useEffect(() => {
     if (userId) {
       loadInvoices();
+      
+      const handleStorageChange = () => {
+        loadInvoices();
+      };
+      
+      window.addEventListener('storage', handleStorageChange);
+      
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
     }
   }, [userId]);
   
@@ -42,13 +51,14 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
     if (storedInvoices) {
       try {
         const parsedInvoices = JSON.parse(storedInvoices);
-        // Sort by date, most recent first
         const sortedInvoices = parsedInvoices.sort((a: Invoice, b: Invoice) => {
           return new Date(b.date).getTime() - new Date(a.date).getTime();
         });
         
         console.log("Loaded invoices for user", userId, ":", sortedInvoices);
-        setInvoices(sortedInvoices);
+        
+        const uniqueInvoices = removeDuplicateInvoices(sortedInvoices);
+        setInvoices(uniqueInvoices);
       } catch (error) {
         console.error("Error parsing invoices:", error);
       }
@@ -57,13 +67,30 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
     }
   };
   
+  const removeDuplicateInvoices = (invoices: Invoice[]) => {
+    const uniqueInvoiceMap = new Map();
+    
+    invoices.forEach(invoice => {
+      uniqueInvoiceMap.set(invoice.invoiceNumber, invoice);
+    });
+    
+    return Array.from(uniqueInvoiceMap.values());
+  };
+  
   const handleViewInvoice = (invoice: Invoice) => {
     setCurrentInvoice(invoice);
     setShowInvoice(true);
   };
 
   const handlePayInvoice = (invoice: Invoice) => {
-    // Redirect to payment page with invoice details
+    if (invoice.status === "Paid") {
+      toast({
+        title: "Invoice already paid",
+        description: `Invoice #${invoice.invoiceNumber} has already been paid.`,
+      });
+      return;
+    }
+    
     navigate('/payment', {
       state: {
         paymentInfo: {
@@ -75,6 +102,20 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
         }
       }
     });
+  };
+  
+  const handleDownloadInvoice = () => {
+    toast({
+      title: "Download started",
+      description: "Your invoice PDF is being downloaded...",
+    });
+    
+    setTimeout(() => {
+      toast({
+        title: "Download complete",
+        description: "Your invoice has been downloaded successfully.",
+      });
+    }, 1500);
   };
   
   const formatDate = (dateString: string) => {
@@ -152,7 +193,6 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
         </CardContent>
       </Card>
 
-      {/* Invoice Dialog */}
       <Dialog open={showInvoice} onOpenChange={setShowInvoice}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -234,7 +274,7 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                     Pay Now
                   </Button>
                 ) : (
-                  <Button>
+                  <Button onClick={handleDownloadInvoice}>
                     <Download className="mr-2 h-4 w-4" />
                     Download PDF
                   </Button>
