@@ -7,6 +7,11 @@ import { Download, FileText, CreditCard } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "@/hooks/use-toast";
 
+interface ServiceItem {
+  name: string;
+  price: string;
+}
+
 interface Invoice {
   invoiceNumber: string;
   customerName: string;
@@ -16,6 +21,7 @@ interface Invoice {
   bookingId?: string;
   paymentMethod?: string;
   services: string[];
+  serviceItems?: ServiceItem[];
 }
 
 interface InvoiceViewProps {
@@ -57,7 +63,25 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
         
         console.log("Loaded invoices for user", userId, ":", sortedInvoices);
         
-        const uniqueInvoices = removeDuplicateInvoices(sortedInvoices);
+        const processedInvoices = sortedInvoices.map((invoice: Invoice) => {
+          if (!invoice.serviceItems) {
+            const totalAmount = parseFloat(invoice.amount.replace(/[^\d.]/g, ''));
+            const serviceCount = invoice.services.length;
+            const estimatedPricePerService = serviceCount > 0 ? (totalAmount / serviceCount) : 0;
+            
+            const serviceItems = invoice.services.map(service => ({
+              name: service,
+              price: serviceCount > 0 
+                ? formatCurrency(estimatedPricePerService) 
+                : invoice.amount
+            }));
+            
+            return { ...invoice, serviceItems };
+          }
+          return invoice;
+        });
+        
+        const uniqueInvoices = removeDuplicateInvoices(processedInvoices);
         setInvoices(uniqueInvoices);
       } catch (error) {
         console.error("Error parsing invoices:", error);
@@ -67,11 +91,23 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
     }
   };
   
+  const formatCurrency = (amount: number): string => {
+    const currencySymbol = invoices.length > 0 && invoices[0].amount 
+      ? invoices[0].amount.charAt(0) 
+      : '₹';
+    
+    return `${currencySymbol}${amount.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+  };
+  
   const removeDuplicateInvoices = (invoices: Invoice[]) => {
     const uniqueInvoiceMap = new Map();
     
     invoices.forEach(invoice => {
-      uniqueInvoiceMap.set(invoice.invoiceNumber, invoice);
+      const existing = uniqueInvoiceMap.get(invoice.invoiceNumber);
+      
+      if (!existing || (invoice.status === "Paid" && existing.status !== "Paid")) {
+        uniqueInvoiceMap.set(invoice.invoiceNumber, invoice);
+      }
     });
     
     return Array.from(uniqueInvoiceMap.values());
@@ -235,12 +271,21 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentInvoice.services.map((service, index) => (
-                        <tr key={`service-${index}`} className="border-b border-gray-200">
-                          <td className="py-2">{service}</td>
-                          <td className="text-right py-2">-</td>
-                        </tr>
-                      ))}
+                      {currentInvoice.serviceItems ? (
+                        currentInvoice.serviceItems.map((item, index) => (
+                          <tr key={`service-${index}`} className="border-b border-gray-200">
+                            <td className="py-2">{item.name}</td>
+                            <td className="text-right py-2">{item.price}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        currentInvoice.services.map((service, index) => (
+                          <tr key={`service-${index}`} className="border-b border-gray-200">
+                            <td className="py-2">{service}</td>
+                            <td className="text-right py-2">-</td>
+                          </tr>
+                        ))
+                      )}
                       
                       <tr>
                         <td className="py-4 text-right font-bold">Total</td>
