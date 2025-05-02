@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,14 +41,21 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
     if (userId) {
       loadInvoices();
       
-      const handleStorageChange = () => {
-        loadInvoices();
+      // Setup event listener for storage changes
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === `invoices_${userId}` || e.key === null) {
+          loadInvoices();
+        }
       };
       
       window.addEventListener('storage', handleStorageChange);
       
+      // Set up polling to check for invoice updates
+      const intervalId = setInterval(loadInvoices, 5000);
+      
       return () => {
         window.removeEventListener('storage', handleStorageChange);
+        clearInterval(intervalId);
       };
     }
   }, [userId]);
@@ -83,6 +91,14 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
         
         const uniqueInvoices = removeDuplicateInvoices(processedInvoices);
         setInvoices(uniqueInvoices);
+        
+        // If current invoice is open, update it
+        if (currentInvoice) {
+          const updatedInvoice = uniqueInvoices.find(inv => inv.invoiceNumber === currentInvoice.invoiceNumber);
+          if (updatedInvoice && updatedInvoice.status !== currentInvoice.status) {
+            setCurrentInvoice(updatedInvoice);
+          }
+        }
       } catch (error) {
         console.error("Error parsing invoices:", error);
       }

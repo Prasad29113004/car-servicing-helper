@@ -53,6 +53,11 @@ const InvoiceManagement = () => {
   useEffect(() => {
     // Load all bookings and invoices from localStorage
     loadBookingsAndInvoices();
+    
+    // Set up interval to refresh data
+    const intervalId = setInterval(loadBookingsAndInvoices, 10000);
+    
+    return () => clearInterval(intervalId);
   }, []);
   
   const loadBookingsAndInvoices = () => {
@@ -120,6 +125,8 @@ const InvoiceManagement = () => {
     
     // Find the user ID that owns this booking
     const keys = Object.keys(localStorage);
+    let foundUserId = null;
+    
     for (const key of keys) {
       if (key.startsWith("bookings_")) {
         const userId = key.replace("bookings_", "");
@@ -129,6 +136,7 @@ const InvoiceManagement = () => {
             const userBookings = JSON.parse(userBookingsStr);
             const matchingBooking = userBookings.find((b: Booking) => b.id === invoice.bookingId);
             if (matchingBooking) {
+              foundUserId = userId;
               // Add notification for this user
               const notificationsKey = `notifications_${userId}`;
               const notificationsStr = localStorage.getItem(notificationsKey);
@@ -145,6 +153,22 @@ const InvoiceManagement = () => {
               });
               
               localStorage.setItem(notificationsKey, JSON.stringify(notifications));
+              
+              // Make sure the invoice is also stored for this user
+              const userInvoicesKey = `invoices_${userId}`;
+              const userInvoicesStr = localStorage.getItem(userInvoicesKey);
+              const userInvoices = userInvoicesStr ? JSON.parse(userInvoicesStr) : [];
+              
+              // Check if this invoice already exists for this user
+              const existingInvoiceIndex = userInvoices.findIndex((inv: Invoice) => 
+                inv.invoiceNumber === invoice.invoiceNumber);
+                
+              if (existingInvoiceIndex === -1) {
+                // Add the invoice if it doesn't exist
+                userInvoices.push(invoice);
+                localStorage.setItem(userInvoicesKey, JSON.stringify(userInvoices));
+              }
+              
               break;
             }
           } catch (error) {
@@ -152,6 +176,14 @@ const InvoiceManagement = () => {
           }
         }
       }
+    }
+    
+    // Trigger a storage event to update other tabs
+    if (foundUserId) {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: `invoices_${foundUserId}`,
+        newValue: localStorage.getItem(`invoices_${foundUserId}`)
+      }));
     }
   };
   
@@ -178,6 +210,8 @@ const InvoiceManagement = () => {
     // Store the invoice in localStorage for the corresponding user
     // Find the user ID that owns this booking
     const keys = Object.keys(localStorage);
+    let foundUserId = null;
+    
     for (const key of keys) {
       if (key.startsWith("bookings_")) {
         const userId = key.replace("bookings_", "");
@@ -187,6 +221,7 @@ const InvoiceManagement = () => {
             const userBookings = JSON.parse(userBookingsStr);
             const matchingBookingIndex = userBookings.findIndex((b: Booking) => b.id === selectedBooking.id);
             if (matchingBookingIndex !== -1) {
+              foundUserId = userId;
               // Update the booking with invoice information
               userBookings[matchingBookingIndex].invoiceNumber = invoiceNumber;
               localStorage.setItem(key, JSON.stringify(userBookings));
@@ -221,6 +256,14 @@ const InvoiceManagement = () => {
           }
         }
       }
+    }
+    
+    // Trigger a storage event to update other tabs
+    if (foundUserId) {
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: `invoices_${foundUserId}`,
+        newValue: localStorage.getItem(`invoices_${foundUserId}`)
+      }));
     }
     
     // Show success message and close dialog

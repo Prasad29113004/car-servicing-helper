@@ -13,6 +13,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 interface PaymentInfo {
+  invoiceNumber: string;
   bookingId: string;
   services: string[];
   total: string;
@@ -46,7 +47,8 @@ const Payment = () => {
         try {
           const bookingData = JSON.parse(lastBooking);
           setPaymentInfo({
-            bookingId: `BK${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`,
+            invoiceNumber: bookingData.invoiceNumber || `INV${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`,
+            bookingId: bookingData.id || `BK${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`,
             services: bookingData.services || [],
             total: bookingData.amount || "₹0",
             date: bookingData.date || new Date().toISOString().slice(0, 10),
@@ -131,9 +133,8 @@ const Payment = () => {
     setIsProcessing(true);
     
     setTimeout(() => {
-      // Generate invoice data
-      const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
       const currentDate = new Date().toISOString().slice(0, 10);
+      const invoiceNumber = paymentInfo?.invoiceNumber || `INV-${Date.now().toString().slice(-6)}`;
       
       // Create invoice
       const invoice = {
@@ -150,54 +151,84 @@ const Payment = () => {
       // Save invoice to localStorage
       const userId = localStorage.getItem("userId");
       if (userId) {
-        // Get existing invoices or create new array
+        // Find and update existing invoice to mark it as paid
         const existingInvoicesString = localStorage.getItem(`invoices_${userId}`);
-        const existingInvoices = existingInvoicesString ? JSON.parse(existingInvoicesString) : [];
-        
-        // Add new invoice
-        existingInvoices.push(invoice);
-        localStorage.setItem(`invoices_${userId}`, JSON.stringify(existingInvoices));
-        
-        // Update booking status to paid
-        const lastBookingData = localStorage.getItem("lastBooking");
-        if (lastBookingData) {
+        if (existingInvoicesString) {
           try {
-            const bookingData = JSON.parse(lastBookingData);
-            bookingData.paymentStatus = "Paid";
-            bookingData.invoiceNumber = invoiceNumber;
-            localStorage.setItem("lastBooking", JSON.stringify(bookingData));
+            const existingInvoices = JSON.parse(existingInvoicesString);
             
-            // Add to user's bookings
-            const userBookings = localStorage.getItem(`bookings_${userId}`);
-            const bookingsArray = userBookings ? JSON.parse(userBookings) : [];
-            bookingsArray.push({
-              ...bookingData,
-              id: paymentInfo?.bookingId || `BK${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`,
-              paymentStatus: "Paid",
-              invoiceNumber,
+            // Find the specific invoice by invoiceNumber
+            let updatedInvoices = existingInvoices.map((inv: any) => {
+              if (inv.invoiceNumber === invoiceNumber) {
+                return {
+                  ...inv,
+                  status: "Paid",
+                  paymentMethod
+                };
+              }
+              return inv;
             });
-            localStorage.setItem(`bookings_${userId}`, JSON.stringify(bookingsArray));
+            
+            // Store the updated invoices back
+            localStorage.setItem(`invoices_${userId}`, JSON.stringify(updatedInvoices));
+            
+            // Trigger a storage event to notify other tabs
+            window.dispatchEvent(new StorageEvent('storage', {
+              key: `invoices_${userId}`,
+              newValue: JSON.stringify(updatedInvoices)
+            }));
+            
+            // Set invoice data for displaying receipt
+            const paidInvoice = updatedInvoices.find((inv: any) => inv.invoiceNumber === invoiceNumber);
+            if (paidInvoice) {
+              setInvoiceData(paidInvoice);
+            } else {
+              setInvoiceData(invoice);
+            }
+            
+            // Update booking status to paid
+            const bookingsString = localStorage.getItem(`bookings_${userId}`);
+            if (bookingsString && paymentInfo?.bookingId) {
+              const bookings = JSON.parse(bookingsString);
+              const updatedBookings = bookings.map((booking: any) => {
+                if (booking.id === paymentInfo.bookingId || 
+                    booking.invoiceNumber === invoiceNumber) {
+                  return {
+                    ...booking,
+                    paymentStatus: "Paid",
+                    invoiceNumber
+                  };
+                }
+                return booking;
+              });
+              
+              localStorage.setItem(`bookings_${userId}`, JSON.stringify(updatedBookings));
+            }
             
             // Add notification
-            const notifications = localStorage.getItem(`notifications_${userId}`);
-            const notificationsArray = notifications ? JSON.parse(notifications) : [];
-            notificationsArray.push({
+            const notificationsKey = `notifications_${userId}`;
+            const notificationsStr = localStorage.getItem(notificationsKey);
+            const notifications = notificationsStr ? JSON.parse(notificationsStr) : [];
+            notifications.push({
               id: Date.now().toString(),
-              title: "Payment Received",
-              message: `Your payment of ${paymentInfo?.total} has been received for services booked on ${paymentInfo?.date}.`,
+              title: "Payment Successful",
+              message: `Your payment of ${paymentInfo?.total} for invoice #${invoiceNumber} has been processed successfully.`,
               date: new Date().toISOString(),
               read: false,
               type: "payment",
               invoiceNumber,
             });
-            localStorage.setItem(`notifications_${userId}`, JSON.stringify(notificationsArray));
+            localStorage.setItem(notificationsKey, JSON.stringify(notifications));
           } catch (error) {
-            console.error("Error updating booking data:", error);
+            console.error("Error updating invoice data:", error);
+            setInvoiceData(invoice);
           }
+        } else {
+          console.error("No invoices found for user:", userId);
+          setInvoiceData(invoice);
         }
       }
       
-      setInvoiceData(invoice);
       setIsProcessing(false);
       setPaymentSuccess(true);
     }, 2000);
