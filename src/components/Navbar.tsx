@@ -1,15 +1,31 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Car } from "lucide-react";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const location = useLocation();
   
-  // Check if user is logged in (mock for now)
-  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+  useEffect(() => {
+    // Check login status on component mount and when localStorage changes
+    const checkLoginStatus = () => {
+      const loginStatus = localStorage.getItem("isLoggedIn") === "true";
+      setIsLoggedIn(loginStatus);
+    };
+    
+    // Initial check
+    checkLoginStatus();
+    
+    // Listen for storage events to detect changes in other tabs/windows
+    window.addEventListener("storage", checkLoginStatus);
+    
+    return () => {
+      window.removeEventListener("storage", checkLoginStatus);
+    };
+  }, []);
   
   const navLinks = [
     { name: "Home", path: "/" },
@@ -20,6 +36,12 @@ export default function Navbar() {
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    setIsLoggedIn(false);
+    window.location.href = "/";
   };
 
   return (
@@ -55,10 +77,7 @@ export default function Navbar() {
                 </Link>
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    localStorage.removeItem("isLoggedIn");
-                    window.location.href = "/";
-                  }}
+                  onClick={handleLogout}
                 >
                   Logout
                 </Button>
@@ -122,9 +141,8 @@ export default function Navbar() {
                   <button
                     className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                     onClick={() => {
-                      localStorage.removeItem("isLoggedIn");
-                      window.location.href = "/";
                       setIsMenuOpen(false);
+                      handleLogout();
                     }}
                   >
                     Logout

@@ -595,7 +595,7 @@ const Booking = () => {
                 </p>
                 
                 <div className="flex space-x-4">
-                  <Button variant="outline" onClick={() => navigate("/login")}>
+                  <Button variant="outline" onClick={() => navigate("/dashboard")}>
                     {localStorage.getItem("userId") ? "View Dashboard" : "Login to Track"}
                   </Button>
                   <Button onClick={() => navigate("/")}>
