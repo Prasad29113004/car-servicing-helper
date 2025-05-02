@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -33,8 +32,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { ServiceTask } from "@/components/ServiceProgress";
+import { AlertCircle, Trash2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Vehicle {
   id: string;
@@ -82,6 +93,9 @@ const Admin = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [progressTasks, setProgressTasks] = useState<ServiceTask[]>([]);
   const [taskStatusUpdates, setTaskStatusUpdates] = useState<{[taskId: string]: "pending" | "in-progress" | "completed"}>({});
+
+  // Clear data dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     checkAdminStatus();
@@ -594,6 +608,63 @@ const Admin = () => {
     setIsProgressDialogOpen(false);
   };
 
+  const handleClearAllData = () => {
+    try {
+      // Get all keys from localStorage
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) allKeys.push(key);
+      }
+      
+      // Filter for user data, keeping admin data intact
+      const userKeys = allKeys.filter(key => 
+        key.startsWith('userData_') && 
+        !key.includes('admin')
+      );
+      
+      // Delete all user data
+      userKeys.forEach(key => localStorage.removeItem(key));
+      
+      // Clear user-related shared data but preserve admin images
+      const adminImages = localStorage.getItem('adminServiceImages');
+      localStorage.removeItem('sharedServiceImages');
+      
+      if (adminImages) {
+        const parsedImages = JSON.parse(adminImages);
+        // Create a new version with only general images visible to all customers
+        const generalImages = parsedImages.map((img: any) => ({
+          ...img,
+          customerId: 'all'
+        }));
+        localStorage.setItem('sharedServiceImages', JSON.stringify(generalImages));
+      }
+      
+      // Reset state
+      setAppointments([]);
+      setVehicles({});
+      setCustomers({});
+      setServiceProgress({});
+      
+      toast({
+        title: "Data Cleared",
+        description: "All customer data has been successfully cleared",
+      });
+      
+      // Force a storage event to notify other components
+      window.dispatchEvent(new Event('storage'));
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear customer data",
+        variant: "destructive"
+      });
+    }
+    
+    setIsDeleteDialogOpen(false);
+  };
+
   if (!isAdmin) {
     return null;
   }
@@ -716,7 +787,25 @@ const Admin = () => {
                   </svg>
                   Generate Reports
                 </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="h-auto py-4 flex flex-col items-center justify-center bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="mb-2 h-5 w-5" />
+                  Clear Customer Data
+                </Button>
               </div>
+            </div>
+            
+            <div className="mt-8">
+              <Alert variant="destructive" className="bg-red-50 border-red-200">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Clearing customer data will permanently remove all user accounts, vehicles, appointments, and service records. This action cannot be undone.
+                </AlertDescription>
+              </Alert>
             </div>
           </TabsContent>
 
@@ -952,6 +1041,27 @@ const Admin = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Clear Data Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear All Customer Data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will permanently delete all customer accounts, vehicles, appointments, and service records. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearAllData}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete All Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

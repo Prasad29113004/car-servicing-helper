@@ -43,6 +43,24 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
         setSharedImages(parsedImages);
       } else {
         console.log("ServiceProgress - No images found in storage");
+        // Try loading from adminServiceImages as a fallback
+        const adminImages = localStorage.getItem('adminServiceImages');
+        if (adminImages) {
+          const parsedAdminImages = JSON.parse(adminImages);
+          // Filter to only include general images
+          const generalImages = parsedAdminImages
+            .filter((img: any) => img.customerId === 'all')
+            .map((img: any) => ({
+              url: img.url,
+              title: img.title,
+              category: img.category || 'general',
+              customerId: 'all'
+            }));
+          setSharedImages(generalImages);
+          // Save to sharedServiceImages for future use
+          localStorage.setItem('sharedServiceImages', JSON.stringify(generalImages));
+          console.log("ServiceProgress - Created shared images from admin images:", generalImages);
+        }
       }
     } catch (error) {
       console.error("Error loading shared images:", error);
@@ -54,8 +72,10 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
     loadSharedImages();
     
     // Set up event listener for localStorage changes
-    const handleStorageChange = () => {
-      loadSharedImages();
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sharedServiceImages' || e.key === 'adminServiceImages' || e.key === null) {
+        loadSharedImages();
+      }
     };
     
     window.addEventListener('storage', handleStorageChange);
@@ -184,6 +204,10 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                                 src={image.url} 
                                 alt={image.title}
                                 className="w-full h-full object-cover transition-transform hover:scale-105"
+                                onError={(e) => {
+                                  console.error("Image failed to load:", image.url);
+                                  e.currentTarget.src = "/placeholder.svg"; // Fallback image
+                                }}
                               />
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
@@ -215,6 +239,10 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                                     src={image.url} 
                                     alt={image.title}
                                     className="w-full h-full object-cover transition-transform hover:scale-105"
+                                    onError={(e) => {
+                                      console.error("Shared image failed to load:", image.url);
+                                      e.currentTarget.src = "/placeholder.svg"; // Fallback image
+                                    }}
                                   />
                                 </div>
                                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
@@ -253,6 +281,10 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                 src={selectedImage.url} 
                 alt={selectedImage.title}
                 className="max-h-[60vh] w-auto object-contain rounded-md"
+                onError={(e) => {
+                  console.error("Dialog image failed to load:", selectedImage.url);
+                  e.currentTarget.src = "/placeholder.svg"; // Fallback image
+                }}
               />
             </div>
           )}
