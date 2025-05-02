@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -52,9 +51,10 @@ interface ReminderData {
 interface RemindersSectionProps {
   loadAllUsers?: () => void;
   allUsers?: UserData[];
+  dataCleared?: boolean;
 }
 
-const RemindersSection = ({ loadAllUsers, allUsers: propAllUsers }: RemindersSectionProps) => {
+const RemindersSection = ({ loadAllUsers, allUsers: propAllUsers, dataCleared }: RemindersSectionProps) => {
   const [reminders, setReminders] = useState<ReminderData[]>([]);
   const [customers, setCustomers] = useState<UserData[]>([]);
   const [isNewReminderOpen, setIsNewReminderOpen] = useState(false);
@@ -77,7 +77,22 @@ const RemindersSection = ({ loadAllUsers, allUsers: propAllUsers }: RemindersSec
       loadCustomers();
     }
     loadReminders();
-  }, [propAllUsers]);
+  }, [propAllUsers, dataCleared]);
+
+  // Effect to clear reminders when dataCleared flag changes
+  useEffect(() => {
+    if (dataCleared) {
+      // Clear service reminders when customer data is cleared
+      const adminReminders = reminders.filter(r => 
+        r.customerId.startsWith('sample') || 
+        r.customerId === 'admin'
+      );
+      
+      setReminders(adminReminders);
+      localStorage.setItem('serviceReminders', JSON.stringify(adminReminders));
+      console.log("Cleared customer reminders, kept admin/sample reminders:", adminReminders);
+    }
+  }, [dataCleared]);
 
   const loadCustomers = () => {
     const storedCustomers: UserData[] = [];
@@ -142,6 +157,24 @@ const RemindersSection = ({ loadAllUsers, allUsers: propAllUsers }: RemindersSec
     setReminders(parsedReminders);
     console.info("Loaded reminders:", parsedReminders);
   };
+
+  // Filter out reminders for customers that no longer exist (except sample/demo data)
+  useEffect(() => {
+    if (customers.length > 0 && reminders.length > 0) {
+      const customerIds = new Set(customers.map(c => c.id));
+      const validReminders = reminders.filter(reminder => 
+        customerIds.has(reminder.customerId) || 
+        reminder.customerId.startsWith('sample') ||
+        reminder.customerId === 'admin'
+      );
+      
+      if (validReminders.length !== reminders.length) {
+        setReminders(validReminders);
+        localStorage.setItem('serviceReminders', JSON.stringify(validReminders));
+        console.info("Filtered out reminders for non-existent customers:", validReminders);
+      }
+    }
+  }, [customers, reminders]);
 
   const handleAddReminder = () => {
     if (!newReminder.customerId || !newReminder.vehicleId || !newReminder.service || !newReminder.dueDate) {

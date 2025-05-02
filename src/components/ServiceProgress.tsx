@@ -33,37 +33,55 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string, customerId?: string}[]>([]);
   
-  // Function to refresh images from localStorage
+  // Function to refresh images from localStorage with enhanced error handling
   const loadSharedImages = () => {
     try {
+      // First try to get shared images
       const storedImages = localStorage.getItem('sharedServiceImages');
       if (storedImages) {
         const parsedImages = JSON.parse(storedImages);
         console.log("ServiceProgress - loaded images from storage:", parsedImages);
-        setSharedImages(parsedImages);
+        
+        // Validate image data
+        const validImages = parsedImages.filter((img: any) => img && img.url && img.title);
+        setSharedImages(validImages);
       } else {
-        console.log("ServiceProgress - No images found in storage");
+        console.log("ServiceProgress - No shared images found, checking admin images");
+        
         // Try loading from adminServiceImages as a fallback
         const adminImages = localStorage.getItem('adminServiceImages');
         if (adminImages) {
           const parsedAdminImages = JSON.parse(adminImages);
-          // Filter to only include general images
+          console.log("ServiceProgress - Found admin images:", parsedAdminImages);
+          
+          // Filter to only include general images and validate image data
           const generalImages = parsedAdminImages
-            .filter((img: any) => img.customerId === 'all')
+            .filter((img: any) => img && img.url && img.title && img.customerId === 'all')
             .map((img: any) => ({
               url: img.url,
               title: img.title,
               category: img.category || 'general',
               customerId: 'all'
             }));
+            
           setSharedImages(generalImages);
+          
           // Save to sharedServiceImages for future use
-          localStorage.setItem('sharedServiceImages', JSON.stringify(generalImages));
-          console.log("ServiceProgress - Created shared images from admin images:", generalImages);
+          if (generalImages.length > 0) {
+            localStorage.setItem('sharedServiceImages', JSON.stringify(generalImages));
+            console.log("ServiceProgress - Created shared images from admin images:", generalImages);
+          }
+        } else {
+          console.log("ServiceProgress - No admin images found either");
         }
       }
+      
+      // Force trigger a UI refresh
+      localStorage.setItem('imageUpdatedTimestamp', Date.now().toString());
     } catch (error) {
       console.error("Error loading shared images:", error);
+      // Handle error gracefully
+      setSharedImages([]);
     }
   };
   
@@ -89,9 +107,16 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
       }
     }, 1000);
     
+    // Trigger a manual image refresh after a short delay
+    const initialLoadTimer = setTimeout(() => {
+      loadSharedImages();
+      console.log("ServiceProgress - Performed delayed image refresh");
+    }, 1500);
+    
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       clearInterval(checkForUpdates);
+      clearTimeout(initialLoadTimer);
     };
   }, []);
   
@@ -107,10 +132,32 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
       )
     : sharedImages;
 
-  console.log("ServiceProgress - userId:", userId);
-  console.log("ServiceProgress - filtered images:", filteredSharedImages);
-  console.log("ServiceProgress - tasks:", tasks);
-  console.log("ServiceProgress - all shared images:", sharedImages);
+  // Manually check for image loading errors
+  const checkImage = (url: string, callback: (success: boolean) => void) => {
+    const img = new Image();
+    img.onload = () => callback(true);
+    img.onerror = () => callback(false);
+    img.src = url;
+  };
+
+  // Debug logs
+  useEffect(() => {
+    console.log("ServiceProgress - userId:", userId);
+    console.log("ServiceProgress - filtered images:", filteredSharedImages);
+    console.log("ServiceProgress - tasks:", tasks);
+    console.log("ServiceProgress - all shared images:", sharedImages);
+    
+    // Check if images are loadable
+    sharedImages.forEach(img => {
+      checkImage(img.url, success => {
+        if (!success) {
+          console.error(`Image failed to load: ${img.url}`);
+        } else {
+          console.log(`Image successfully loaded: ${img.url}`);
+        }
+      });
+    });
+  }, [userId, filteredSharedImages, tasks, sharedImages]);
 
   return (
     <Card className="shadow-md">
@@ -202,16 +249,16 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                             <div className="aspect-square overflow-hidden rounded-md border">
                               <img 
                                 src={image.url} 
-                                alt={image.title}
+                                alt={image.title || "Service image"}
                                 className="w-full h-full object-cover transition-transform hover:scale-105"
                                 onError={(e) => {
                                   console.error("Image failed to load:", image.url);
-                                  e.currentTarget.src = "/placeholder.svg"; // Fallback image
+                                  (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
                                 }}
                               />
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                              {image.title}
+                              {image.title || "Service image"}
                             </div>
                           </div>
                         ))}
@@ -237,16 +284,16 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                                 <div className="aspect-square overflow-hidden rounded-md border">
                                   <img 
                                     src={image.url} 
-                                    alt={image.title}
+                                    alt={image.title || "Reference image"}
                                     className="w-full h-full object-cover transition-transform hover:scale-105"
                                     onError={(e) => {
                                       console.error("Shared image failed to load:", image.url);
-                                      e.currentTarget.src = "/placeholder.svg"; // Fallback image
+                                      (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
                                     }}
                                   />
                                 </div>
                                 <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                                  {image.title}
+                                  {image.title || "Reference image"}
                                 </div>
                               </div>
                             ))}
@@ -270,7 +317,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
       <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{selectedImage?.title}</DialogTitle>
+            <DialogTitle>{selectedImage?.title || "Service Image"}</DialogTitle>
             <DialogDescription>
               Service progress documentation
             </DialogDescription>
@@ -279,11 +326,11 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
             <div className="flex items-center justify-center">
               <img 
                 src={selectedImage.url} 
-                alt={selectedImage.title}
+                alt={selectedImage.title || "Service image"}
                 className="max-h-[60vh] w-auto object-contain rounded-md"
                 onError={(e) => {
                   console.error("Dialog image failed to load:", selectedImage.url);
-                  e.currentTarget.src = "/placeholder.svg"; // Fallback image
+                  (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
                 }}
               />
             </div>
