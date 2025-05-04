@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -103,7 +102,7 @@ const Dashboard = () => {
         try {
           const parsedData: UserData = JSON.parse(storedData);
           
-          // Fix missing service progress data
+          // Ensure all appointments have corresponding service progress entries
           if (parsedData.upcomingServices && parsedData.upcomingServices.length > 0) {
             // Initialize service progress array if it doesn't exist
             if (!parsedData.serviceProgress) {
@@ -125,55 +124,48 @@ const Dashboard = () => {
                 const vehicle = parsedData.vehicles?.find(v => v.id === service.vehicleId);
                 
                 if (vehicle) {
-                  // Create default service progress
-                  const newProgress = {
-                    appointmentId: service.id,
-                    vehicleId: service.vehicleId,
-                    progress: 0,
-                    tasks: [
-                      {
-                        id: `task-inspection-${service.id}`,
-                        title: "Vehicle Inspection",
-                        status: "pending",
-                        description: "Initial inspection of the vehicle"
-                      }
-                    ] as ServiceTask[]
-                  };
+                  // Create service-specific tasks based on the service description
+                  const serviceTypes = service.service.split(',').map(s => s.trim());
+                  const tasks: ServiceTask[] = [
+                    {
+                      id: `task-inspection-${service.id}`,
+                      title: "Vehicle Inspection",
+                      status: "pending",
+                      description: "Initial inspection of the vehicle"
+                    }
+                  ];
                   
-                  // For services with multiple types, create separate task items
-                  if (service.service) {
-                    const serviceTypes = service.service.split(',').map(s => s.trim());
-                    serviceTypes.forEach((serviceType, index) => {
-                      newProgress.tasks.push({
-                        id: `task-service-${service.id}-${index}`,
-                        title: serviceType,
-                        status: "pending",
-                        description: "Main service work"
-                      });
-                    });
-                  } else {
-                    // Fallback for services without a specific type
-                    newProgress.tasks.push({
-                      id: `task-service-${service.id}`,
-                      title: "Service",
+                  // Add a task for each service type
+                  serviceTypes.forEach((serviceType, index) => {
+                    tasks.push({
+                      id: `task-service-${service.id}-${index}`,
+                      title: serviceType,
                       status: "pending",
                       description: "Main service work"
                     });
-                  }
+                  });
                   
                   // Add final inspection task
-                  newProgress.tasks.push({
+                  tasks.push({
                     id: `task-final-${service.id}`,
                     title: "Final Inspection",
                     status: "pending",
                     description: "Final quality check"
                   });
                   
+                  // Create the new progress entry
+                  const newProgress = {
+                    appointmentId: service.id,
+                    vehicleId: service.vehicleId,
+                    progress: 0,
+                    tasks: tasks
+                  };
+                  
                   // Add to service progress array
                   parsedData.serviceProgress?.push(newProgress);
                   updatedProgressData = true;
                   
-                  console.log(`Created missing progress for appointment ${service.id}`);
+                  console.log(`Created missing progress for appointment ${service.id} with ${tasks.length} tasks`);
                 }
               }
             });
@@ -547,6 +539,14 @@ const Dashboard = () => {
             <TabsContent value="progress" className="space-y-4">
               {userData?.serviceProgress && userData.serviceProgress.length > 0 ? (
                 userData.serviceProgress.map((progress) => {
+                  // Check if this progress entry has an associated appointment
+                  const appointment = userData.upcomingServices?.find(
+                    service => service.id === progress.appointmentId
+                  );
+                  
+                  // Only show progress for active appointments
+                  if (!appointment) return null;
+                  
                   const vehicle = userData.vehicles?.find(v => v.id === progress.vehicleId);
                   return vehicle ? (
                     <ServiceProgress

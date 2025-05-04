@@ -226,6 +226,45 @@ const Admin = () => {
       }
     });
     
+    // Ensure all appointments have corresponding progress entries
+    allAppointments.forEach(appointment => {
+      if (!allProgress[appointment.id]) {
+        // Create default progress for this appointment
+        const defaultTasks: ServiceTask[] = generateTasksForService(appointment.service);
+        
+        allProgress[appointment.id] = {
+          progress: 0,
+          tasks: defaultTasks,
+          vehicleId: appointment.vehicleId,
+          userId: appointment.userId
+        };
+        
+        // Update user data with this new progress
+        try {
+          const userData = localStorage.getItem(`userData_${appointment.userId}`);
+          if (userData) {
+            const user = JSON.parse(userData);
+            const updatedUser = {
+              ...user,
+              serviceProgress: [
+                ...(user.serviceProgress || []),
+                {
+                  appointmentId: appointment.id,
+                  vehicleId: appointment.vehicleId,
+                  progress: 0,
+                  tasks: defaultTasks
+                }
+              ]
+            };
+            localStorage.setItem(`userData_${appointment.userId}`, JSON.stringify(updatedUser));
+            console.log(`Created missing progress entry for appointment ${appointment.id}`);
+          }
+        } catch (error) {
+          console.error(`Error updating progress data for ${appointment.userId}:`, error);
+        }
+      }
+    });
+    
     setAppointments(allAppointments);
     setVehicles(allVehicles);
     setCustomers(allCustomers);
@@ -233,6 +272,39 @@ const Admin = () => {
     
     console.log("Loaded service progress:", allProgress);
     console.log("Loaded appointments:", allAppointments);
+  };
+
+  // Helper function to generate tasks based on service name
+  const generateTasksForService = (serviceName: string): ServiceTask[] => {
+    const serviceTypes = serviceName.split(',').map(s => s.trim());
+    const tasks: ServiceTask[] = [
+      {
+        id: `task-${Date.now()}-inspection`,
+        title: "Vehicle Inspection",
+        status: "pending",
+        description: "Initial inspection of the vehicle"
+      }
+    ];
+    
+    // Add a task for each service type
+    serviceTypes.forEach((service, index) => {
+      tasks.push({
+        id: `task-${Date.now()}-${index}`,
+        title: service,
+        status: "pending",
+        description: "Main service work"
+      });
+    });
+    
+    // Add final inspection task
+    tasks.push({
+      id: `task-${Date.now()}-final`,
+      title: "Final Inspection",
+      status: "pending",
+      description: "Final quality check"
+    });
+    
+    return tasks;
   };
 
   const handleEditStatus = (appointmentId: string, currentStatus: string) => {
@@ -448,27 +520,7 @@ const Admin = () => {
       });
       setTaskStatusUpdates(initialStatuses);
     } else {
-      const defaultTasks: ServiceTask[] = [
-        {
-          id: `task-${Date.now()}-1`,
-          title: "Vehicle Inspection",
-          status: "pending",
-          description: "Initial inspection of the vehicle"
-        },
-        {
-          id: `task-${Date.now()}-2`,
-          title: appointment.service.includes("Oil Change") ? "Oil Change" : 
-                appointment.service.includes("Wheel") ? "Wheel Service" : "Service Work",
-          status: "pending",
-          description: "Main service work"
-        },
-        {
-          id: `task-${Date.now()}-3`,
-          title: "Final Inspection",
-          status: "pending",
-          description: "Final quality check"
-        }
-      ];
+      const defaultTasks = generateTasksForService(appointment.service);
       setProgressTasks(defaultTasks);
       
       const initialStatuses: {[taskId: string]: "pending" | "in-progress" | "completed"} = {};
