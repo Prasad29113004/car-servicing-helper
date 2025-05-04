@@ -25,100 +25,125 @@ interface ServiceProgressProps {
   progress: number;
   tasks: ServiceTask[];
   appointmentId?: string;
-  userId?: string; // Add userId prop
+  userId?: string;
 }
 
 export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, userId }: ServiceProgressProps) {
   const [selectedImage, setSelectedImage] = useState<{url: string, title: string} | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [sharedImages, setSharedImages] = useState<{url: string, title: string, category: string, customerId?: string}[]>([]);
+  const [loadingImages, setLoadingImages] = useState(true);
+  const [imageLoadAttempts, setImageLoadAttempts] = useState(0);
   
-  // Function to refresh images from localStorage with enhanced error handling
+  // Enhanced function to load images with better error handling
   const loadSharedImages = () => {
     try {
-      // First try to get shared images
-      const storedImages = localStorage.getItem('sharedServiceImages');
-      if (storedImages) {
-        const parsedImages = JSON.parse(storedImages);
-        console.log("ServiceProgress - loaded images from storage:", parsedImages);
+      console.log("ServiceProgress - Loading shared images attempt:", imageLoadAttempts + 1);
+      setLoadingImages(true);
+      
+      // First check admin images directly - this is more reliable
+      const adminImages = localStorage.getItem('adminServiceImages');
+      
+      if (adminImages) {
+        const parsedAdminImages = JSON.parse(adminImages);
+        console.log("ServiceProgress - Found admin images:", parsedAdminImages);
         
-        // Validate image data
-        const validImages = parsedImages.filter((img: any) => img && img.url && img.title);
-        setSharedImages(validImages);
-      } else {
-        console.log("ServiceProgress - No shared images found, checking admin images");
-        
-        // Try loading from adminServiceImages as a fallback
-        const adminImages = localStorage.getItem('adminServiceImages');
-        if (adminImages) {
-          const parsedAdminImages = JSON.parse(adminImages);
-          console.log("ServiceProgress - Found admin images:", parsedAdminImages);
+        if (Array.isArray(parsedAdminImages) && parsedAdminImages.length > 0) {
+          // Filter images that should be visible to this user
+          const visibleImages = parsedAdminImages.filter((img: any) => {
+            if (img && img.url && img.title) {
+              // Show if shared with all users or specifically with this user
+              return img.customerId === 'all' || 
+                   (userId && img.customerId === userId);
+            }
+            return false;
+          });
           
-          // Filter to only include general images and validate image data
-          const generalImages = parsedAdminImages
-            .filter((img: any) => img && img.url && img.title && img.customerId === 'all')
-            .map((img: any) => ({
-              url: img.url,
-              title: img.title,
-              category: img.category || 'general',
-              customerId: 'all'
-            }));
-            
-          setSharedImages(generalImages);
+          const processedImages = visibleImages.map((img: any) => ({
+            url: img.url,
+            title: img.title,
+            category: img.category || 'general',
+            customerId: img.customerId
+          }));
           
-          // Save to sharedServiceImages for future use
-          if (generalImages.length > 0) {
-            localStorage.setItem('sharedServiceImages', JSON.stringify(generalImages));
-            console.log("ServiceProgress - Created shared images from admin images:", generalImages);
-          }
+          console.log("ServiceProgress - Filtered visible images:", processedImages);
+          setSharedImages(processedImages);
         } else {
-          console.log("ServiceProgress - No admin images found either");
+          console.log("ServiceProgress - Admin images array is empty or invalid");
+        }
+      } else {
+        // Fallback to sharedServiceImages if adminServiceImages doesn't exist
+        const storedImages = localStorage.getItem('sharedServiceImages');
+        if (storedImages) {
+          const parsedImages = JSON.parse(storedImages);
+          console.log("ServiceProgress - Loaded from shared images:", parsedImages);
+          
+          // Validate and filter images
+          const validImages = parsedImages.filter((img: any) => {
+            if (img && img.url && img.title) {
+              return img.customerId === 'all' || 
+                   (userId && img.customerId === userId);
+            }
+            return false;
+          });
+          
+          setSharedImages(validImages);
+        } else {
+          console.log("ServiceProgress - No shared images found");
+          setSharedImages([]);
         }
       }
       
-      // Force trigger a UI refresh
-      localStorage.setItem('imageUpdatedTimestamp', Date.now().toString());
+      setLoadingImages(false);
     } catch (error) {
       console.error("Error loading shared images:", error);
-      // Handle error gracefully
       setSharedImages([]);
+      setLoadingImages(false);
     }
   };
   
-  // Load images when component mounts and whenever localStorage updates
+  // Initial load and setup event listeners
   useEffect(() => {
+    console.log("ServiceProgress - Initial mount, userId:", userId);
     loadSharedImages();
     
-    // Set up event listener for localStorage changes
+    // Set up event listener for storage changes
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'sharedServiceImages' || e.key === 'adminServiceImages' || e.key === null) {
+      if (e.key === 'sharedServiceImages' || e.key === 'adminServiceImages' || e.key === 'imageUpdatedTimestamp' || e.key === null) {
+        console.log("ServiceProgress - Storage change detected:", e.key);
         loadSharedImages();
       }
     };
     
     window.addEventListener('storage', handleStorageChange);
     
-    // Also check for the image update flag
-    const checkForUpdates = setInterval(() => {
-      const updateFlag = localStorage.getItem('imageUpdatedTimestamp');
-      if (updateFlag) {
+    // Trigger additional load attempts with increasing delays
+    const loadTimers = [
+      setTimeout(() => {
+        console.log("ServiceProgress - Delayed image refresh (1)");
+        setImageLoadAttempts(prev => prev + 1);
         loadSharedImages();
-        localStorage.removeItem('imageUpdatedTimestamp');
-      }
-    }, 1000);
-    
-    // Trigger a manual image refresh after a short delay
-    const initialLoadTimer = setTimeout(() => {
-      loadSharedImages();
-      console.log("ServiceProgress - Performed delayed image refresh");
-    }, 1500);
+      }, 1000),
+      
+      setTimeout(() => {
+        console.log("ServiceProgress - Delayed image refresh (2)");
+        setImageLoadAttempts(prev => prev + 1);
+        loadSharedImages();
+      }, 3000)
+    ];
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(checkForUpdates);
-      clearTimeout(initialLoadTimer);
+      loadTimers.forEach(timer => clearTimeout(timer));
     };
-  }, []);
+  }, [userId]);
+  
+  // Additional useEffect to reload images when imageLoadAttempts changes
+  useEffect(() => {
+    if (imageLoadAttempts > 0) {
+      loadSharedImages();
+    }
+  }, [imageLoadAttempts]);
   
   const openImageDialog = (image: {url: string, title: string}) => {
     setSelectedImage(image);
@@ -126,38 +151,14 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
   };
 
   // Filter shared images based on userId if provided
-  const filteredSharedImages = userId 
-    ? sharedImages.filter(img => 
-        img.customerId === 'all' || img.customerId === userId
-      )
-    : sharedImages;
-
-  // Manually check for image loading errors
-  const checkImage = (url: string, callback: (success: boolean) => void) => {
-    const img = new Image();
-    img.onload = () => callback(true);
-    img.onerror = () => callback(false);
-    img.src = url;
-  };
+  const filteredSharedImages = sharedImages.filter(img => 
+    img.customerId === 'all' || (userId && img.customerId === userId)
+  );
 
   // Debug logs
   useEffect(() => {
-    console.log("ServiceProgress - userId:", userId);
-    console.log("ServiceProgress - filtered images:", filteredSharedImages);
-    console.log("ServiceProgress - tasks:", tasks);
-    console.log("ServiceProgress - all shared images:", sharedImages);
-    
-    // Check if images are loadable
-    sharedImages.forEach(img => {
-      checkImage(img.url, success => {
-        if (!success) {
-          console.error(`Image failed to load: ${img.url}`);
-        } else {
-          console.log(`Image successfully loaded: ${img.url}`);
-        }
-      });
-    });
-  }, [userId, filteredSharedImages, tasks, sharedImages]);
+    console.log("ServiceProgress - Current filtered images:", filteredSharedImages);
+  }, [filteredSharedImages]);
 
   return (
     <Card className="shadow-md">
@@ -242,7 +243,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                       <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {task.images.map((image, index) => (
                           <div 
-                            key={`task-img-${index}`} 
+                            key={`task-img-${task.id}-${index}`} 
                             className="relative group cursor-pointer"
                             onClick={() => openImageDialog(image)}
                           >
@@ -252,7 +253,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                                 alt={image.title || "Service image"}
                                 className="w-full h-full object-cover transition-transform hover:scale-105"
                                 onError={(e) => {
-                                  console.error("Image failed to load:", image.url);
+                                  console.error("Task image failed to load:", image.url);
                                   (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
                                 }}
                               />
@@ -271,13 +272,21 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                         <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {filteredSharedImages
-                            .filter(img => 
-                              img.title.toLowerCase().includes(task.title.toLowerCase()) || 
-                              task.title.toLowerCase().includes(img.title.toLowerCase())
-                            )
+                            .filter(img => {
+                              const imgTitle = img.title?.toLowerCase() || '';
+                              const taskTitle = task.title?.toLowerCase() || '';
+                              
+                              // Show image if title contains task name or vice versa
+                              return imgTitle.includes(taskTitle) || 
+                                     taskTitle.includes(imgTitle) ||
+                                     // Also match by category (more general)
+                                     img.category?.toLowerCase() === 'general' ||
+                                     (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service') ||
+                                     (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'service');
+                            })
                             .map((image, index) => (
                               <div 
-                                key={`shared-${index}`} 
+                                key={`shared-${task.id}-${index}`} 
                                 className="relative group cursor-pointer"
                                 onClick={() => openImageDialog(image)}
                               >
@@ -288,7 +297,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                                     className="w-full h-full object-cover transition-transform hover:scale-105"
                                     onError={(e) => {
                                       console.error("Shared image failed to load:", image.url);
-                                      (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
+                                      (e.target as HTMLImageElement).src = "/placeholder.svg"; 
                                     }}
                                   />
                                 </div>
@@ -311,6 +320,37 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
             <p className="text-center text-gray-500 py-8">No service tasks available yet.</p>
           )}
         </div>
+
+        {/* Display all shared images if no specific task matches */}
+        {filteredSharedImages && filteredSharedImages.length > 0 && tasks.length > 0 && (
+          <div className="mt-6 border-t pt-4">
+            <h4 className="text-sm font-medium mb-2">All Reference Images</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {filteredSharedImages.map((image, index) => (
+                <div 
+                  key={`all-shared-${index}`} 
+                  className="relative group cursor-pointer"
+                  onClick={() => openImageDialog(image)}
+                >
+                  <div className="aspect-square overflow-hidden rounded-md border">
+                    <img 
+                      src={image.url} 
+                      alt={image.title || "Reference image"}
+                      className="w-full h-full object-cover transition-transform hover:scale-105"
+                      onError={(e) => {
+                        console.error("All images section - image failed to load:", image.url);
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                    {image.title || "Reference image"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
       
       {/* Image Preview Dialog */}

@@ -99,14 +99,84 @@ const Dashboard = () => {
     if (userId) {
       const storedData = localStorage.getItem(`userData_${userId}`);
       if (storedData) {
-        const parsedData: UserData = JSON.parse(storedData);
-        setUserData(parsedData);
-        
-        // Calculate unread notifications
-        const unread = parsedData.notifications?.filter(n => !n.read).length || 0;
-        setUnreadCount(unread);
-        
-        console.log("Loaded user data:", parsedData);
+        try {
+          const parsedData: UserData = JSON.parse(storedData);
+          
+          // Fix missing service progress data
+          // If there are appointments but no or incomplete service progress data, create or update it
+          if (parsedData.upcomingServices && parsedData.upcomingServices.length > 0) {
+            // Initialize service progress array if it doesn't exist
+            if (!parsedData.serviceProgress) {
+              parsedData.serviceProgress = [];
+            }
+            
+            // Loop through all services and make sure each has a progress entry
+            parsedData.upcomingServices.forEach(service => {
+              // Check if this service already has a progress entry
+              const hasProgressEntry = parsedData.serviceProgress?.some(
+                prog => prog.appointmentId === service.id
+              );
+              
+              // If no progress entry exists for this service, create one
+              if (!hasProgressEntry) {
+                // Find the associated vehicle
+                const vehicle = parsedData.vehicles?.find(v => v.id === service.vehicleId);
+                
+                if (vehicle) {
+                  // Create default service progress
+                  const newProgress = {
+                    appointmentId: service.id,
+                    vehicleId: service.vehicleId,
+                    progress: 0,
+                    tasks: [
+                      {
+                        id: `task-inspection-${service.id}`,
+                        title: "Vehicle Inspection",
+                        status: "pending",
+                        description: "Initial inspection of the vehicle"
+                      },
+                      {
+                        id: `task-service-${service.id}`,
+                        title: service.service,
+                        status: "pending",
+                        description: "Main service work"
+                      },
+                      {
+                        id: `task-final-${service.id}`,
+                        title: "Final Inspection",
+                        status: "pending",
+                        description: "Final quality check"
+                      }
+                    ] as ServiceTask[]
+                  };
+                  
+                  // Add to service progress array
+                  parsedData.serviceProgress?.push(newProgress);
+                  
+                  console.log(`Created missing progress for appointment ${service.id}`);
+                }
+              }
+            });
+            
+            // Save updated user data with all service progress items
+            localStorage.setItem(`userData_${userId}`, JSON.stringify(parsedData));
+          }
+          
+          setUserData(parsedData);
+          
+          // Calculate unread notifications
+          const unread = parsedData.notifications?.filter(n => !n.read).length || 0;
+          setUnreadCount(unread);
+          
+          console.log("Loaded user data with fixed service progress:", parsedData);
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          toast({
+            title: "Error loading user data",
+            description: "Please try logging in again",
+            variant: "destructive",
+          });
+        }
       }
     }
   };
@@ -266,6 +336,10 @@ const Dashboard = () => {
   // Refresh user data - useful for ensuring we have the latest service progress
   const refreshUserData = () => {
     loadUserData();
+    
+    // Trigger image loading in ServiceProgress components
+    localStorage.setItem('imageUpdatedTimestamp', Date.now().toString());
+    
     toast({
       title: "Data refreshed",
       description: "Latest service information loaded"
