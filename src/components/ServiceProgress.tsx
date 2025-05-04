@@ -160,6 +160,9 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
     console.log("ServiceProgress - Current filtered images:", filteredSharedImages);
   }, [filteredSharedImages]);
 
+  // Map to track which images have been shown with which tasks to prevent duplication
+  const shownImageUrls = new Map();
+  
   return (
     <Card className="shadow-md">
       <CardHeader className="pb-2">
@@ -191,163 +194,182 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
 
         <div className="space-y-5 my-4">
           {tasks.length > 0 ? (
-            tasks.map((task) => (
-              <div key={task.id} className="relative">
-                <div className="flex items-start gap-4">
-                  <div className={cn(
-                    "mt-1 rounded-full p-1",
-                    task.status === "completed" ? "bg-green-100 text-green-600" : 
-                    task.status === "in-progress" ? "bg-blue-100 text-blue-600" : 
-                    "bg-gray-100 text-gray-400"
-                  )}>
-                    {task.status === "completed" ? (
-                      <Check className="h-4 w-4" />
-                    ) : task.status === "in-progress" ? (
-                      <Clock className="h-4 w-4" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="space-y-1 w-full">
-                    <div className="flex items-center gap-2">
-                      <h4 className={cn(
-                        "font-medium",
-                        task.status === "completed" ? "text-green-600" : 
-                        task.status === "in-progress" ? "text-blue-600" : 
-                        "text-gray-500"
-                      )}>
-                        {task.title}
-                      </h4>
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full",
-                        task.status === "completed" ? "bg-green-100 text-green-700" : 
-                        task.status === "in-progress" ? "bg-blue-100 text-blue-700" : 
-                        "bg-gray-100 text-gray-600"
-                      )}>
-                        {task.status === "completed" ? "Completed" : 
-                        task.status === "in-progress" ? "In Progress" : 
-                        "Pending"}
-                      </span>
+            tasks.map((task) => {
+              // Reset the shownImageUrls when we start a new task
+              if (task === tasks[0]) {
+                shownImageUrls.clear();
+              }
+              
+              return (
+                <div key={task.id} className="relative">
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      "mt-1 rounded-full p-1",
+                      task.status === "completed" ? "bg-green-100 text-green-600" : 
+                      task.status === "in-progress" ? "bg-blue-100 text-blue-600" : 
+                      "bg-gray-100 text-gray-400"
+                    )}>
+                      {task.status === "completed" ? (
+                        <Check className="h-4 w-4" />
+                      ) : task.status === "in-progress" ? (
+                        <Clock className="h-4 w-4" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4" />
+                      )}
                     </div>
-                    {task.description && (
-                      <p className="text-sm text-gray-500">{task.description}</p>
-                    )}
-                    {task.completedDate && task.technician && task.status === "completed" && (
-                      <p className="text-sm text-gray-500">
-                        {task.completedDate} | Technician: {task.technician}
-                      </p>
-                    )}
-
-                    {/* Display task-specific images */}
-                    {task.images && task.images.length > 0 && (
-                      <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {task.images.map((image, index) => (
-                          <div 
-                            key={`task-img-${task.id}-${index}`} 
-                            className="relative group cursor-pointer"
-                            onClick={() => openImageDialog(image)}
-                          >
-                            <div className="aspect-square overflow-hidden rounded-md border">
-                              <img 
-                                src={image.url} 
-                                alt={image.title || "Service image"}
-                                className="w-full h-full object-cover transition-transform hover:scale-105"
-                                onError={(e) => {
-                                  console.error("Task image failed to load:", image.url);
-                                  (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
-                                }}
-                              />
-                            </div>
-                            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                              {image.title || "Service image"}
-                            </div>
-                          </div>
-                        ))}
+                    <div className="space-y-1 w-full">
+                      <div className="flex items-center gap-2">
+                        <h4 className={cn(
+                          "font-medium",
+                          task.status === "completed" ? "text-green-600" : 
+                          task.status === "in-progress" ? "text-blue-600" : 
+                          "text-gray-500"
+                        )}>
+                          {task.title}
+                        </h4>
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full",
+                          task.status === "completed" ? "bg-green-100 text-green-700" : 
+                          task.status === "in-progress" ? "bg-blue-100 text-blue-700" : 
+                          "bg-gray-100 text-gray-600"
+                        )}>
+                          {task.status === "completed" ? "Completed" : 
+                          task.status === "in-progress" ? "In Progress" : 
+                          "Pending"}
+                        </span>
                       </div>
-                    )}
+                      {task.description && (
+                        <p className="text-sm text-gray-500">{task.description}</p>
+                      )}
+                      {task.completedDate && task.technician && task.status === "completed" && (
+                        <p className="text-sm text-gray-500">
+                          {task.completedDate} | Technician: {task.technician}
+                        </p>
+                      )}
 
-                    {/* Display shared images relevant to this task */}
-                    {filteredSharedImages && filteredSharedImages.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {filteredSharedImages
-                            .filter(img => {
-                              const imgTitle = img.title?.toLowerCase() || '';
-                              const taskTitle = task.title?.toLowerCase() || '';
-                              
-                              // Show image if title contains task name or vice versa
-                              return imgTitle.includes(taskTitle) || 
-                                     taskTitle.includes(imgTitle) ||
-                                     // Also match by category (more general)
-                                     img.category?.toLowerCase() === 'general' ||
-                                     (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service') ||
-                                     (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'service');
-                            })
-                            .map((image, index) => (
-                              <div 
-                                key={`shared-${task.id}-${index}`} 
-                                className="relative group cursor-pointer"
-                                onClick={() => openImageDialog(image)}
-                              >
-                                <div className="aspect-square overflow-hidden rounded-md border">
-                                  <img 
-                                    src={image.url} 
-                                    alt={image.title || "Reference image"}
-                                    className="w-full h-full object-cover transition-transform hover:scale-105"
-                                    onError={(e) => {
-                                      console.error("Shared image failed to load:", image.url);
-                                      (e.target as HTMLImageElement).src = "/placeholder.svg"; 
-                                    }}
-                                  />
-                                </div>
-                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                                  {image.title || "Reference image"}
-                                </div>
+                      {/* Display task-specific images */}
+                      {task.images && task.images.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {task.images.map((image, index) => (
+                            <div 
+                              key={`task-img-${task.id}-${index}`} 
+                              className="relative group cursor-pointer"
+                              onClick={() => openImageDialog(image)}
+                            >
+                              <div className="aspect-square overflow-hidden rounded-md border">
+                                <img 
+                                  src={image.url} 
+                                  alt={image.title || "Service image"}
+                                  className="w-full h-full object-cover transition-transform hover:scale-105"
+                                  onError={(e) => {
+                                    console.error("Task image failed to load:", image.url);
+                                    (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
+                                  }}
+                                />
                               </div>
-                            ))}
+                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                                {image.title || "Service image"}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {/* Display shared images relevant to this task - avoiding duplicates */}
+                      {filteredSharedImages && filteredSharedImages.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {filteredSharedImages
+                              .filter(img => {
+                                const imgTitle = img.title?.toLowerCase() || '';
+                                const taskTitle = task.title?.toLowerCase() || '';
+                                
+                                // Check if relevant to this task
+                                const isRelevant = imgTitle.includes(taskTitle) || 
+                                  taskTitle.includes(imgTitle) ||
+                                  img.category?.toLowerCase() === 'general' ||
+                                  (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service') ||
+                                  (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'service');
+                                
+                                // Check if we've already shown this image for previous tasks
+                                if (isRelevant) {
+                                  if (shownImageUrls.has(img.url)) {
+                                    return false;
+                                  } else {
+                                    shownImageUrls.set(img.url, true);
+                                    return true;
+                                  }
+                                }
+                                return false;
+                              })
+                              .map((image, index) => (
+                                <div 
+                                  key={`shared-${task.id}-${index}`} 
+                                  className="relative group cursor-pointer"
+                                  onClick={() => openImageDialog(image)}
+                                >
+                                  <div className="aspect-square overflow-hidden rounded-md border">
+                                    <img 
+                                      src={image.url} 
+                                      alt={image.title || "Reference image"}
+                                      className="w-full h-full object-cover transition-transform hover:scale-105"
+                                      onError={(e) => {
+                                        console.error("Shared image failed to load:", image.url);
+                                        (e.target as HTMLImageElement).src = "/placeholder.svg"; 
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                                    {image.title || "Reference image"}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {task !== tasks[tasks.length - 1] && (
+                    <div className="absolute left-[18px] top-[28px] bottom-[-24px] w-[2px] bg-gray-200"></div>
+                  )}
                 </div>
-                {task !== tasks[tasks.length - 1] && (
-                  <div className="absolute left-[18px] top-[28px] bottom-[-24px] w-[2px] bg-gray-200"></div>
-                )}
-              </div>
-            ))
+              );
+            })
           ) : (
             <p className="text-center text-gray-500 py-8">No service tasks available yet.</p>
           )}
         </div>
 
-        {/* Display all shared images if no specific task matches */}
+        {/* Display all shared images if no specific task matches - prevent duplicates */}
         {filteredSharedImages && filteredSharedImages.length > 0 && tasks.length > 0 && (
           <div className="mt-6 border-t pt-4">
             <h4 className="text-sm font-medium mb-2">All Reference Images</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {filteredSharedImages.map((image, index) => (
-                <div 
-                  key={`all-shared-${index}`} 
-                  className="relative group cursor-pointer"
-                  onClick={() => openImageDialog(image)}
-                >
-                  <div className="aspect-square overflow-hidden rounded-md border">
-                    <img 
-                      src={image.url} 
-                      alt={image.title || "Reference image"}
-                      className="w-full h-full object-cover transition-transform hover:scale-105"
-                      onError={(e) => {
-                        console.error("All images section - image failed to load:", image.url);
-                        (e.target as HTMLImageElement).src = "/placeholder.svg";
-                      }}
-                    />
+              {filteredSharedImages
+                .filter(image => !shownImageUrls.has(image.url)) // Only show images not shown with tasks
+                .map((image, index) => (
+                  <div 
+                    key={`all-shared-${index}`} 
+                    className="relative group cursor-pointer"
+                    onClick={() => openImageDialog(image)}
+                  >
+                    <div className="aspect-square overflow-hidden rounded-md border">
+                      <img 
+                        src={image.url} 
+                        alt={image.title || "Reference image"}
+                        className="w-full h-full object-cover transition-transform hover:scale-105"
+                        onError={(e) => {
+                          console.error("All images section - image failed to load:", image.url);
+                          (e.target as HTMLImageElement).src = "/placeholder.svg";
+                        }}
+                      />
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                      {image.title || "Reference image"}
+                    </div>
                   </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                    {image.title || "Reference image"}
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
         )}

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -103,22 +104,23 @@ const Dashboard = () => {
           const parsedData: UserData = JSON.parse(storedData);
           
           // Fix missing service progress data
-          // If there are appointments but no or incomplete service progress data, create or update it
           if (parsedData.upcomingServices && parsedData.upcomingServices.length > 0) {
             // Initialize service progress array if it doesn't exist
             if (!parsedData.serviceProgress) {
               parsedData.serviceProgress = [];
             }
             
+            let updatedProgressData = false;
+            
             // Loop through all services and make sure each has a progress entry
             parsedData.upcomingServices.forEach(service => {
               // Check if this service already has a progress entry
-              const hasProgressEntry = parsedData.serviceProgress?.some(
+              const existingProgressEntry = parsedData.serviceProgress?.find(
                 prog => prog.appointmentId === service.id
               );
               
               // If no progress entry exists for this service, create one
-              if (!hasProgressEntry) {
+              if (!existingProgressEntry) {
                 // Find the associated vehicle
                 const vehicle = parsedData.vehicles?.find(v => v.id === service.vehicleId);
                 
@@ -134,32 +136,52 @@ const Dashboard = () => {
                         title: "Vehicle Inspection",
                         status: "pending",
                         description: "Initial inspection of the vehicle"
-                      },
-                      {
-                        id: `task-service-${service.id}`,
-                        title: service.service,
-                        status: "pending",
-                        description: "Main service work"
-                      },
-                      {
-                        id: `task-final-${service.id}`,
-                        title: "Final Inspection",
-                        status: "pending",
-                        description: "Final quality check"
                       }
                     ] as ServiceTask[]
                   };
                   
+                  // For services with multiple types, create separate task items
+                  if (service.service) {
+                    const serviceTypes = service.service.split(',').map(s => s.trim());
+                    serviceTypes.forEach((serviceType, index) => {
+                      newProgress.tasks.push({
+                        id: `task-service-${service.id}-${index}`,
+                        title: serviceType,
+                        status: "pending",
+                        description: "Main service work"
+                      });
+                    });
+                  } else {
+                    // Fallback for services without a specific type
+                    newProgress.tasks.push({
+                      id: `task-service-${service.id}`,
+                      title: "Service",
+                      status: "pending",
+                      description: "Main service work"
+                    });
+                  }
+                  
+                  // Add final inspection task
+                  newProgress.tasks.push({
+                    id: `task-final-${service.id}`,
+                    title: "Final Inspection",
+                    status: "pending",
+                    description: "Final quality check"
+                  });
+                  
                   // Add to service progress array
                   parsedData.serviceProgress?.push(newProgress);
+                  updatedProgressData = true;
                   
                   console.log(`Created missing progress for appointment ${service.id}`);
                 }
               }
             });
             
-            // Save updated user data with all service progress items
-            localStorage.setItem(`userData_${userId}`, JSON.stringify(parsedData));
+            // Save updated user data if we made changes
+            if (updatedProgressData) {
+              localStorage.setItem(`userData_${userId}`, JSON.stringify(parsedData));
+            }
           }
           
           setUserData(parsedData);
