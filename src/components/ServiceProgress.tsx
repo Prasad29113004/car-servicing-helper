@@ -159,9 +159,6 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
   useEffect(() => {
     console.log("ServiceProgress - Current filtered images:", filteredSharedImages);
   }, [filteredSharedImages]);
-
-  // Map to track which images have been shown with which tasks to prevent duplication
-  const shownImageUrls = new Map();
   
   return (
     <Card className="shadow-md">
@@ -195,11 +192,20 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
         <div className="space-y-5 my-4">
           {tasks.length > 0 ? (
             tasks.map((task) => {
-              // Reset the shownImageUrls when we start a new task
-              if (task === tasks[0]) {
-                shownImageUrls.clear();
-              }
-              
+              // Get images that are relevant to this specific task
+              const relevantImages = filteredSharedImages.filter(img => {
+                const imgTitle = img.title?.toLowerCase() || '';
+                const taskTitle = task.title?.toLowerCase() || '';
+                
+                // Check if relevant to this task (title match or category match)
+                return imgTitle.includes(taskTitle) || 
+                  taskTitle.includes(imgTitle) ||
+                  (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'inspection') ||
+                  (task.title?.toLowerCase().includes('diagnostics') && img.category?.toLowerCase() === 'diagnostics') ||
+                  (task.title?.toLowerCase().includes('rotation') && img.category?.toLowerCase() === 'tyre') ||
+                  (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service');
+              });
+
               return (
                 <div key={task.id} className="relative">
                   <div className="flex items-start gap-4">
@@ -241,14 +247,17 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                       {task.description && (
                         <p className="text-sm text-gray-500">{task.description}</p>
                       )}
-                      {task.completedDate && task.technician && task.status === "completed" && (
+                      {task.completedDate && (
                         <p className="text-sm text-gray-500">
-                          {task.completedDate} | Technician: {task.technician}
+                          {task.completedDate}
+                          {task.technician && (
+                            <span> | Technician: {task.technician}</span>
+                          )}
                         </p>
                       )}
 
-                      {/* Display task-specific images */}
-                      {task.images && task.images.length > 0 && (
+                      {/* Display task-specific images - ONLY if task is completed */}
+                      {task.status === "completed" && task.images && task.images.length > 0 && (
                         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {task.images.map((image, index) => (
                             <div 
@@ -275,56 +284,33 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                         </div>
                       )}
 
-                      {/* Display shared images relevant to this task - avoiding duplicates */}
-                      {filteredSharedImages && filteredSharedImages.length > 0 && (
+                      {/* Display shared images relevant to this task - ONLY if task is completed */}
+                      {task.status === "completed" && relevantImages.length > 0 && (
                         <div className="mt-3">
                           <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {filteredSharedImages
-                              .filter(img => {
-                                const imgTitle = img.title?.toLowerCase() || '';
-                                const taskTitle = task.title?.toLowerCase() || '';
-                                
-                                // Check if relevant to this task
-                                const isRelevant = imgTitle.includes(taskTitle) || 
-                                  taskTitle.includes(imgTitle) ||
-                                  img.category?.toLowerCase() === 'general' ||
-                                  (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service') ||
-                                  (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'service');
-                                
-                                // Check if we've already shown this image for previous tasks
-                                if (isRelevant) {
-                                  if (shownImageUrls.has(img.url)) {
-                                    return false;
-                                  } else {
-                                    shownImageUrls.set(img.url, true);
-                                    return true;
-                                  }
-                                }
-                                return false;
-                              })
-                              .map((image, index) => (
-                                <div 
-                                  key={`shared-${task.id}-${index}`} 
-                                  className="relative group cursor-pointer"
-                                  onClick={() => openImageDialog(image)}
-                                >
-                                  <div className="aspect-square overflow-hidden rounded-md border">
-                                    <img 
-                                      src={image.url} 
-                                      alt={image.title || "Reference image"}
-                                      className="w-full h-full object-cover transition-transform hover:scale-105"
-                                      onError={(e) => {
-                                        console.error("Shared image failed to load:", image.url);
-                                        (e.target as HTMLImageElement).src = "/placeholder.svg"; 
-                                      }}
-                                    />
-                                  </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                                    {image.title || "Reference image"}
-                                  </div>
+                            {relevantImages.map((image, index) => (
+                              <div 
+                                key={`shared-${task.id}-${index}`} 
+                                className="relative group cursor-pointer"
+                                onClick={() => openImageDialog(image)}
+                              >
+                                <div className="aspect-square overflow-hidden rounded-md border">
+                                  <img 
+                                    src={image.url} 
+                                    alt={image.title || "Reference image"}
+                                    className="w-full h-full object-cover transition-transform hover:scale-105"
+                                    onError={(e) => {
+                                      console.error("Shared image failed to load:", image.url);
+                                      (e.target as HTMLImageElement).src = "/placeholder.svg"; 
+                                    }}
+                                  />
                                 </div>
-                              ))}
+                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                                  {image.title || "Reference image"}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
@@ -341,35 +327,33 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
           )}
         </div>
 
-        {/* Display all shared images if no specific task matches - prevent duplicates */}
-        {filteredSharedImages && filteredSharedImages.length > 0 && tasks.length > 0 && (
+        {/* Display completed service images section (for reference) */}
+        {filteredSharedImages.length > 0 && tasks.some(task => task.status === "completed") && (
           <div className="mt-6 border-t pt-4">
-            <h4 className="text-sm font-medium mb-2">All Reference Images</h4>
+            <h4 className="text-sm font-medium mb-2">All Completed Service Images</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {filteredSharedImages
-                .filter(image => !shownImageUrls.has(image.url)) // Only show images not shown with tasks
-                .map((image, index) => (
-                  <div 
-                    key={`all-shared-${index}`} 
-                    className="relative group cursor-pointer"
-                    onClick={() => openImageDialog(image)}
-                  >
-                    <div className="aspect-square overflow-hidden rounded-md border">
-                      <img 
-                        src={image.url} 
-                        alt={image.title || "Reference image"}
-                        className="w-full h-full object-cover transition-transform hover:scale-105"
-                        onError={(e) => {
-                          console.error("All images section - image failed to load:", image.url);
-                          (e.target as HTMLImageElement).src = "/placeholder.svg";
-                        }}
-                      />
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                      {image.title || "Reference image"}
-                    </div>
+              {filteredSharedImages.map((image, index) => (
+                <div 
+                  key={`all-shared-${index}`} 
+                  className="relative group cursor-pointer"
+                  onClick={() => openImageDialog(image)}
+                >
+                  <div className="aspect-square overflow-hidden rounded-md border">
+                    <img 
+                      src={image.url} 
+                      alt={image.title || "Reference image"}
+                      className="w-full h-full object-cover transition-transform hover:scale-105"
+                      onError={(e) => {
+                        console.error("All images section - image failed to load:", image.url);
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      }}
+                    />
                   </div>
-                ))}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
+                    {image.title || "Reference image"}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
