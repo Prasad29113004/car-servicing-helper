@@ -18,8 +18,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceTask } from "@/types/service";
+import { Image } from "lucide-react";
 
 export default function ServiceProgressManagement() {
   const [serviceProgress, setServiceProgress] = useState<{
@@ -35,10 +37,27 @@ export default function ServiceProgressManagement() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<{[key: string]: any}>({});
   const [customers, setCustomers] = useState<{[key: string]: string}>({});
+  const [sharedImages, setSharedImages] = useState<any[]>([]);
+  const [selectedImage, setSelectedImage] = useState<{url: string, title: string} | null>(null);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const { toast } = useToast();
   
   useEffect(() => {
     loadAllProgressData();
+    loadSharedImages();
+
+    // Set up event listener for storage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'sharedServiceImages' || e.key === 'adminServiceImages' || e.key === null) {
+        loadSharedImages();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
   
   const loadAllProgressData = () => {
@@ -104,6 +123,38 @@ export default function ServiceProgressManagement() {
     setAppointments(allAppointments);
   };
 
+  const loadSharedImages = () => {
+    try {
+      // First check admin images directly
+      const adminImages = localStorage.getItem('adminServiceImages');
+      
+      if (adminImages) {
+        const parsedImages = JSON.parse(adminImages);
+        console.log("Admin panel - Found admin images:", parsedImages);
+        
+        if (Array.isArray(parsedImages)) {
+          setSharedImages(parsedImages);
+        }
+      } else {
+        // Fallback to sharedServiceImages
+        const storedImages = localStorage.getItem('sharedServiceImages');
+        if (storedImages) {
+          const parsedImages = JSON.parse(storedImages);
+          console.log("Admin panel - Loaded from shared images:", parsedImages);
+          setSharedImages(parsedImages);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading shared images:", error);
+      setSharedImages([]);
+    }
+  };
+
+  const openImageDialog = (image: {url: string, title: string}) => {
+    setSelectedImage(image);
+    setIsImageDialogOpen(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed": return "bg-green-100 text-green-800";
@@ -116,6 +167,32 @@ export default function ServiceProgressManagement() {
   const formatDate = (dateString?: string) => {
     if (!dateString) return "Not completed";
     return new Date(dateString).toLocaleDateString();
+  };
+
+  // Get images relevant to a specific task
+  const getRelevantImages = (task: ServiceTask, userId?: string) => {
+    // First check if task has its own images
+    if (task.images && task.images.length > 0) {
+      return task.images;
+    }
+    
+    // Then look for relevant shared images
+    return sharedImages.filter(img => {
+      // Show if shared with all users or specifically with this user
+      const isForUser = img.customerId === 'all' || (userId && img.customerId === userId);
+      
+      if (!isForUser) return false;
+      
+      const imgTitle = img.title?.toLowerCase() || '';
+      const taskTitle = task.title?.toLowerCase() || '';
+      
+      // Check if relevant to this task (title match or category match)
+      return imgTitle.includes(taskTitle) || 
+        taskTitle.includes(imgTitle) ||
+        (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'inspection') ||
+        (task.title?.toLowerCase().includes('diagnostics') && img.category?.toLowerCase() === 'diagnostics') ||
+        (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service');
+    });
   };
 
   return (
@@ -165,29 +242,66 @@ export default function ServiceProgressManagement() {
                           <TableHead>Status</TableHead>
                           <TableHead>Completed</TableHead>
                           <TableHead>Technician</TableHead>
+                          <TableHead>Images</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {progressData.tasks.map((task) => (
-                          <TableRow key={task.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{task.title}</p>
-                                {task.description && (
-                                  <p className="text-xs text-gray-500">{task.description}</p>
+                        {progressData.tasks.map((task) => {
+                          const relevantImages = getRelevantImages(task, progressData.userId);
+                          
+                          return (
+                            <TableRow key={task.id}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">{task.title}</p>
+                                  {task.description && (
+                                    <p className="text-xs text-gray-500">{task.description}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(task.status)}`}>
+                                  {task.status === "in-progress" ? "In Progress" : 
+                                   task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                                </span>
+                              </TableCell>
+                              <TableCell>{formatDate(task.completedDate)}</TableCell>
+                              <TableCell>{task.technician || "Not assigned"}</TableCell>
+                              <TableCell>
+                                {relevantImages && relevantImages.length > 0 ? (
+                                  <div className="flex gap-2">
+                                    {relevantImages.slice(0, 2).map((image: any, index: number) => (
+                                      <div 
+                                        key={`img-${task.id}-${index}`}
+                                        className="cursor-pointer relative h-10 w-10 rounded border bg-gray-100"
+                                        onClick={() => openImageDialog(image)}
+                                      >
+                                        <img 
+                                          src={image.url} 
+                                          alt={image.title || "Service image"}
+                                          className="h-full w-full object-cover rounded"
+                                          onError={(e) => {
+                                            console.error("Image failed to load:", image.url);
+                                            (e.target as HTMLImageElement).src = "/placeholder.svg"; 
+                                          }}
+                                        />
+                                      </div>
+                                    ))}
+                                    {relevantImages.length > 2 && (
+                                      <Badge variant="secondary" className="cursor-pointer">
+                                        +{relevantImages.length - 2}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 flex items-center gap-1">
+                                    <Image className="h-4 w-4" /> None
+                                  </span>
                                 )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(task.status)}`}>
-                                {task.status === "in-progress" ? "In Progress" : 
-                                 task.status.charAt(0).toUpperCase() + task.status.slice(1)}
-                              </span>
-                            </TableCell>
-                            <TableCell>{formatDate(task.completedDate)}</TableCell>
-                            <TableCell>{task.technician || "Not assigned"}</TableCell>
-                          </TableRow>
-                        ))}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -201,6 +315,28 @@ export default function ServiceProgressManagement() {
           <p className="text-gray-500">No service progress data available.</p>
         </div>
       )}
+      
+      {/* Image Preview Dialog */}
+      <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedImage?.title || "Service Image"}</DialogTitle>
+          </DialogHeader>
+          {selectedImage && (
+            <div className="flex items-center justify-center">
+              <img 
+                src={selectedImage.url} 
+                alt={selectedImage.title || "Service image"}
+                className="max-h-[60vh] w-auto object-contain rounded-md"
+                onError={(e) => {
+                  console.error("Dialog image failed to load:", selectedImage.url);
+                  (e.target as HTMLImageElement).src = "/placeholder.svg";
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

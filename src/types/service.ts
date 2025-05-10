@@ -6,4 +6,8 @@ export interface ServiceTask {
   description?: string;
   completedDate?: string;
   technician?: string;
+  images?: {
+    url: string;
+    title: string;
+  }[];
 }
