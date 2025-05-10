@@ -16,7 +16,26 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 
-const services = [
+// Get services from localStorage or use default
+const getServicesFromStorage = () => {
+  const storedServices = localStorage.getItem("carServices");
+  if (storedServices) {
+    try {
+      const parsedServices = JSON.parse(storedServices);
+      return parsedServices.map(service => ({
+        id: service.id || service.title.toLowerCase().replace(/\s+/g, '-'),
+        name: service.title,
+        price: service.price
+      }));
+    } catch (error) {
+      console.error("Error parsing services from localStorage:", error);
+      return defaultServices;
+    }
+  }
+  return defaultServices;
+};
+
+const defaultServices = [
   { id: "oil-change", name: "Oil Change", price: "₹999" },
   { id: "general-service", name: "General Service", price: "₹2,999" },
   { id: "brake-service", name: "Brake Service", price: "₹4,499" },
@@ -197,6 +216,8 @@ const Booking = () => {
       setStep(step - 1);
     }
   };
+
+  const [services, setServices] = useState(getServicesFromStorage());
 
   const toggleService = (serviceId: string) => {
     setSelectedServices(prev => {
