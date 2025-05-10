@@ -1,51 +1,14 @@
-import { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RemindersSection from "@/components/admin/RemindersSection";
 import ImageManagement from "@/components/admin/ImageManagement";
 import InvoiceManagement from "@/components/admin/InvoiceManagement";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Progress } from "@/components/ui/progress";
-import { ServiceTask } from "@/components/ServiceProgress";
-import { AlertCircle, Trash2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import ServiceManagement from "@/components/admin/ServiceManagement";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { IconName } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -724,301 +687,121 @@ const Admin = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <div className="flex-1 container max-w-6xl mx-auto py-8 px-4">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <Button onClick={() => navigate("/dashboard")}>Back to User Dashboard</Button>
+      <main className="flex-grow py-8">
+        <div className="container px-4 mx-auto">
+          <div className="flex flex-col items-start mb-8 space-y-2">
+            <h1 className="text-3xl font-bold text-carservice-dark">Admin Dashboard</h1>
+            <p className="text-gray-600">Manage your car service operations</p>
+          </div>
+
+          <Tabs defaultValue="bookings">
+            <TabsList className="mb-6">
+              <TabsTrigger value="bookings">Bookings</TabsTrigger>
+              <TabsTrigger value="images">Service Images</TabsTrigger>
+              <TabsTrigger value="invoices">Invoices</TabsTrigger>
+              <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="reminders">Reminders</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="bookings">
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-xl font-medium mb-4">Manage Appointments</h3>
+                {appointments.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Service</TableHead>
+                          <TableHead>Date & Time</TableHead>
+                          <TableHead>Vehicle</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {appointments.map((appointment) => {
+                          const vehicle = vehicles[appointment.vehicleId];
+                          return (
+                            <TableRow key={`appointment-${appointment.id}`}>
+                              <TableCell>{appointment.id}</TableCell>
+                              <TableCell>{appointment.customerName || customers[appointment.userId] || "Unknown"}</TableCell>
+                              <TableCell>{appointment.service}</TableCell>
+                              <TableCell>{appointment.date} {appointment.time}</TableCell>
+                              <TableCell>
+                                {vehicle ? 
+                                  `${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})` : 
+                                  "Unknown Vehicle"}
+                              </TableCell>
+                              <TableCell>
+                                <span className={`px-2 py-1 rounded-full ${
+                                  appointment.status === "Confirmed" ? "bg-green-100 text-green-800" :
+                                  appointment.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
+                                  appointment.status === "In Progress" ? "bg-blue-100 text-blue-800" :
+                                  appointment.status === "Completed" ? "bg-purple-100 text-purple-800" :
+                                  "bg-gray-100 text-gray-800"
+                                }`}>
+                                  {appointment.status}
+                                </span>
+                              </TableCell>
+                              <TableCell className="space-x-2">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleEditStatus(appointment.id, appointment.status)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-red-500"
+                                  onClick={() => handleCancelAppointment(appointment.id)}
+                                >
+                                  Cancel
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="py-10 text-center">
+                    <p className="text-gray-500">No appointments found. Customers' appointments will appear here.</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="images">
+              <div className="bg-white rounded-lg shadow p-6">
+                <ImageManagement />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="invoices">
+              <div className="bg-white rounded-lg shadow p-6">
+                <InvoiceManagement />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="services">
+              <div className="bg-white rounded-lg shadow p-6">
+                <ServiceManagement />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="reminders">
+              <div className="bg-white rounded-lg shadow p-6">
+                <RemindersSection />
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
-
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid grid-cols-6 w-full max-w-3xl">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="appointments">Appointments</TabsTrigger>
-            <TabsTrigger value="progress">Service Progress</TabsTrigger>
-            <TabsTrigger value="reminders">Reminders</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="images">Image Management</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-medium mb-2">Booking Statistics</h3>
-                <p className="text-gray-500 mb-4">All-time booking metrics</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Total Bookings</p>
-                    <p className="text-2xl font-bold">{appointments.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">This Month</p>
-                    <p className="text-2xl font-bold">
-                      {appointments.filter(a => {
-                        const date = new Date(a.date);
-                        const currentMonth = new Date().getMonth();
-                        return date.getMonth() === currentMonth;
-                      }).length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-medium mb-2">Revenue</h3>
-                <p className="text-gray-500 mb-4">Financial overview</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Total Revenue</p>
-                    <p className="text-2xl font-bold">
-                      ₹{appointments.reduce((acc, curr) => {
-                        const amount = parseInt(curr.amount.replace(/[^0-9]/g, '')) || 0;
-                        return acc + amount;
-                      }, 0).toLocaleString('en-IN')}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">This Month</p>
-                    <p className="text-2xl font-bold">
-                      ₹{appointments.filter(a => {
-                        const date = new Date(a.date);
-                        const currentMonth = new Date().getMonth();
-                        return date.getMonth() === currentMonth;
-                      }).reduce((acc, curr) => {
-                        const amount = parseInt(curr.amount.replace(/[^0-9]/g, '')) || 0;
-                        return acc + amount;
-                      }, 0).toLocaleString('en-IN')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-medium mb-2">Customers</h3>
-                <p className="text-gray-500 mb-4">Customer statistics</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Total Customers</p>
-                    <p className="text-2xl font-bold">{Object.keys(customers).length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Active Services</p>
-                    <p className="text-2xl font-bold">
-                      {appointments.filter(a => a.status === "In Progress").length}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8">
-              <h3 className="text-xl font-medium mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <line x1="19" x2="19" y1="8" y2="14"></line>
-                    <line x1="22" x2="16" y1="11" y2="11"></line>
-                  </svg>
-                  Add New Staff
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
-                    <rect width="20" height="14" x="2" y="5" rx="2"></rect>
-                    <line x1="2" x2="22" y1="10" y2="10"></line>
-                  </svg>
-                  View Payments
-                </Button>
-                <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <path d="M14 2v6h6"></path>
-                    <path d="M16 13H8"></path>
-                    <path d="M16 17H8"></path>
-                    <path d="M10 9H8"></path>
-                  </svg>
-                  Generate Reports
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="h-auto py-4 flex flex-col items-center justify-center bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="mb-2 h-5 w-5" />
-                  Clear Customer Data
-                </Button>
-              </div>
-            </div>
-            
-            <div className="mt-8">
-              <Alert variant="destructive" className="bg-red-50 border-red-200">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Clearing customer data will permanently remove all user accounts, vehicles, appointments, and service records. This action cannot be undone.
-                </AlertDescription>
-              </Alert>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="appointments">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-medium mb-4">Manage Appointments</h3>
-              {appointments.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Service</TableHead>
-                        <TableHead>Date & Time</TableHead>
-                        <TableHead>Vehicle</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {appointments.map((appointment) => {
-                        const vehicle = vehicles[appointment.vehicleId];
-                        return (
-                          <TableRow key={`appointment-${appointment.id}`}>
-                            <TableCell>{appointment.id}</TableCell>
-                            <TableCell>{appointment.customerName || customers[appointment.userId] || "Unknown"}</TableCell>
-                            <TableCell>{appointment.service}</TableCell>
-                            <TableCell>{appointment.date} {appointment.time}</TableCell>
-                            <TableCell>
-                              {vehicle ? 
-                                `${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})` : 
-                                "Unknown Vehicle"}
-                            </TableCell>
-                            <TableCell>
-                              <span className={`px-2 py-1 rounded-full ${
-                                appointment.status === "Confirmed" ? "bg-green-100 text-green-800" :
-                                appointment.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
-                                appointment.status === "In Progress" ? "bg-blue-100 text-blue-800" :
-                                appointment.status === "Completed" ? "bg-purple-100 text-purple-800" :
-                                "bg-gray-100 text-gray-800"
-                              }`}>
-                                {appointment.status}
-                              </span>
-                            </TableCell>
-                            <TableCell className="space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => handleEditStatus(appointment.id, appointment.status)}
-                              >
-                                Edit
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-red-500"
-                                onClick={() => handleCancelAppointment(appointment.id)}
-                              >
-                                Cancel
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="py-10 text-center">
-                  <p className="text-gray-500">No appointments found. Customers' appointments will appear here.</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="progress">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-medium mb-4">Service Progress</h3>
-              {appointments.filter(a => a.status === "In Progress" || a.status === "Completed").length > 0 ? (
-                <div className="space-y-6">
-                  {appointments
-                    .filter(a => a.status === "In Progress" || a.status === "Completed")
-                    .map(appointment => {
-                      const vehicle = vehicles[appointment.vehicleId];
-                      const progressData = serviceProgress[appointment.id];
-                      const progress = progressData?.progress || 0;
-                      
-                      return (
-                        <div key={`progress-${appointment.id}`} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-center mb-2">
-                            <h4 className="text-lg font-medium">
-                              {vehicle ? `${vehicle.make} ${vehicle.model} (${vehicle.licensePlate})` : "Unknown Vehicle"} - {appointment.service}
-                            </h4>
-                            <span className={`px-2 py-1 rounded-full ${
-                              appointment.status === "Completed" ? "bg-green-100 text-green-800" :
-                              "bg-blue-100 text-blue-800"
-                            }`}>
-                              {appointment.status}
-                            </span>
-                          </div>
-                          <p className="mb-2">Customer: {appointment.customerName || customers[appointment.userId] || "Unknown"}</p>
-                          
-                          {progressData && progressData.tasks ? (
-                            <>
-                              {progressData.tasks.map((task, index) => (
-                                <div key={`task-${task.id}-${index}`} className="mb-4">
-                                  <div className="flex justify-between mb-1">
-                                    <span className="text-sm">{task.title}</span>
-                                    <span className="text-sm">
-                                      {task.status === "completed" ? "Completed" : 
-                                       task.status === "in-progress" ? "In Progress" : "Pending"}
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div className={`h-2 rounded-full ${
-                                      task.status === "completed" ? "bg-green-600" : 
-                                      task.status === "in-progress" ? "bg-blue-600" : "bg-gray-300"
-                                    }`} style={{ 
-                                      width: task.status === "completed" ? "100%" : 
-                                             task.status === "in-progress" ? "60%" : "0%" 
-                                    }}></div>
-                                  </div>
-                                </div>
-                              ))}
-                            </>
-                          ) : (
-                            <p className="text-gray-500 mb-2">No progress data available</p>
-                          )}
-                          
-                          <div className="mt-4">
-                            <Button onClick={() => handleUpdateProgress(appointment)}>
-                              Update Progress
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  }
-                </div>
-              ) : (
-                <div className="py-10 text-center">
-                  <p className="text-gray-500">No active services. Services in progress will appear here.</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="reminders">
-            <RemindersSection />
-          </TabsContent>
-          
-          <TabsContent value="invoices">
-            <InvoiceManagement />
-          </TabsContent>
-
-          <TabsContent value="images">
-            <ImageManagement />
-          </TabsContent>
-        </Tabs>
-      </div>
+      </main>
       <Footer />
       
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
