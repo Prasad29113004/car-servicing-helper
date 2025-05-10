@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -8,7 +9,43 @@ import ImageManagement from "@/components/admin/ImageManagement";
 import InvoiceManagement from "@/components/admin/InvoiceManagement";
 import ServiceManagement from "@/components/admin/ServiceManagement";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { IconName } from "lucide-react";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { ServiceTask } from "@/types/service";
 
 interface Vehicle {
   id: string;
