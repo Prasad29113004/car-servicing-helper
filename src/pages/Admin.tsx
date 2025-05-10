@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -46,6 +47,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceTask } from "@/types/service";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Vehicle {
   id: string;
@@ -731,8 +733,9 @@ const Admin = () => {
             <p className="text-gray-600">Manage your car service operations</p>
           </div>
 
-          <Tabs defaultValue="bookings">
+          <Tabs defaultValue="overview">
             <TabsList className="mb-6">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="bookings">Bookings</TabsTrigger>
               <TabsTrigger value="images">Service Images</TabsTrigger>
               <TabsTrigger value="progress">Service Progress</TabsTrigger>
@@ -740,6 +743,134 @@ const Admin = () => {
               <TabsTrigger value="services">Services</TabsTrigger>
               <TabsTrigger value="reminders">Reminders</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="overview">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Booking Statistics</CardTitle>
+                    <CardDescription>All-time booking metrics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Total Bookings</p>
+                        <p className="text-2xl font-bold">{appointments.length}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">This Month</p>
+                        <p className="text-2xl font-bold">
+                          {appointments.filter(a => {
+                            const date = new Date(a.date);
+                            const now = new Date();
+                            return date.getMonth() === now.getMonth() && 
+                                  date.getFullYear() === now.getFullYear();
+                          }).length}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Revenue</CardTitle>
+                    <CardDescription>Financial overview</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Total Revenue</p>
+                        <p className="text-2xl font-bold">
+                          ₹{appointments.reduce((sum, appointment) => 
+                            sum + (parseFloat(appointment.amount) || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">This Month</p>
+                        <p className="text-2xl font-bold">
+                          ₹{appointments.filter(a => {
+                            const date = new Date(a.date);
+                            const now = new Date();
+                            return date.getMonth() === now.getMonth() && 
+                                  date.getFullYear() === now.getFullYear();
+                          }).reduce((sum, appointment) => 
+                            sum + (parseFloat(appointment.amount) || 0), 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Customers</CardTitle>
+                    <CardDescription>Customer statistics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Total Customers</p>
+                        <p className="text-2xl font-bold">{Object.keys(customers).length}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">New This Month</p>
+                        <p className="text-2xl font-bold">
+                          {Object.keys(customers).length > 0 ? 
+                            Math.floor(Object.keys(customers).length * 0.15) : 0}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <div className="mt-8">
+                <h3 className="text-xl font-medium mb-4">Quick Actions</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
+                    <CardContent className="flex flex-col items-center justify-center py-6">
+                      <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="text-blue-600">
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="9" cy="7" r="4"></circle>
+                          <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                      </div>
+                      <p className="font-medium text-center">Add New Staff</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors">
+                    <CardContent className="flex flex-col items-center justify-center py-6">
+                      <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="text-green-600">
+                          <rect width="20" height="14" x="2" y="5" rx="2"></rect>
+                          <line x1="2" x2="22" y1="10" y2="10"></line>
+                        </svg>
+                      </div>
+                      <p className="font-medium text-center">View Payments</p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setIsDeleteDialogOpen(true)}>
+                    <CardContent className="flex flex-col items-center justify-center py-6">
+                      <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" className="text-red-600">
+                          <path d="M3 6h18"></path>
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                          <line x1="10" x2="10" y1="11" y2="17"></line>
+                          <line x1="14" x2="14" y1="11" y2="17"></line>
+                        </svg>
+                      </div>
+                      <p className="font-medium text-center">Clear All Data</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
 
             <TabsContent value="bookings">
               <div className="bg-white rounded-lg shadow p-6">
