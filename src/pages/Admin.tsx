@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -8,6 +7,7 @@ import RemindersSection from "@/components/admin/RemindersSection";
 import ImageManagement from "@/components/admin/ImageManagement";
 import InvoiceManagement from "@/components/admin/InvoiceManagement";
 import ServiceManagement from "@/components/admin/ServiceManagement";
+import ServiceProgressManagement from "@/components/admin/ServiceProgressManagement";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Table, 
@@ -735,6 +735,7 @@ const Admin = () => {
             <TabsList className="mb-6">
               <TabsTrigger value="bookings">Bookings</TabsTrigger>
               <TabsTrigger value="images">Service Images</TabsTrigger>
+              <TabsTrigger value="progress">Service Progress</TabsTrigger>
               <TabsTrigger value="invoices">Invoices</TabsTrigger>
               <TabsTrigger value="services">Services</TabsTrigger>
               <TabsTrigger value="reminders">Reminders</TabsTrigger>
@@ -816,6 +817,12 @@ const Admin = () => {
             <TabsContent value="images">
               <div className="bg-white rounded-lg shadow p-6">
                 <ImageManagement />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="progress">
+              <div className="bg-white rounded-lg shadow p-6">
+                <ServiceProgressManagement />
               </div>
             </TabsContent>
 
