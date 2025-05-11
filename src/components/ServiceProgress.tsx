@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Check, Clock, AlertCircle, Wrench, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,19 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-
-export interface ServiceTask {
-  id: string;
-  title: string;
-  status: "pending" | "in-progress" | "completed";
-  description?: string;
-  completedDate?: string;
-  technician?: string;
-  images?: {
-    url: string;
-    title: string;
-  }[];
-}
+import { ServiceTask } from "@/types/service";
 
 interface ServiceProgressProps {
   vehicleName: string;
@@ -116,6 +103,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
     };
     
     window.addEventListener('storage', handleStorageChange);
+    document.addEventListener('serviceImagesUpdated', loadSharedImages as EventListener);
     
     // Trigger additional load attempts with increasing delays
     const loadTimers = [
@@ -134,6 +122,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      document.removeEventListener('serviceImagesUpdated', loadSharedImages as EventListener);
       loadTimers.forEach(timer => clearTimeout(timer));
     };
   }, [userId]);
@@ -256,8 +245,8 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                         </p>
                       )}
 
-                      {/* Display task-specific images - ONLY if task is completed */}
-                      {task.status === "completed" && task.images && task.images.length > 0 && (
+                      {/* Display task-specific images - ONLY if task is completed or in progress */}
+                      {(task.status === "completed" || task.status === "in-progress") && task.images && task.images.length > 0 && (
                         <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {task.images.map((image, index) => (
                             <div 
@@ -272,7 +261,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                                   className="w-full h-full object-cover transition-transform hover:scale-105"
                                   onError={(e) => {
                                     console.error("Task image failed to load:", image.url);
-                                    (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
+                                    (e.target as HTMLImageElement).src = "/placeholder.svg"; 
                                   }}
                                 />
                               </div>
@@ -284,8 +273,8 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                         </div>
                       )}
 
-                      {/* Display shared images relevant to this task - ONLY if task is completed */}
-                      {task.status === "completed" && relevantImages.length > 0 && (
+                      {/* Display shared images relevant to this task - ONLY if task is completed or in progress */}
+                      {(task.status === "completed" || task.status === "in-progress") && relevantImages.length > 0 && (
                         <div className="mt-3">
                           <p className="text-xs text-gray-500 mb-2">Reference Images:</p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -328,9 +317,9 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
         </div>
 
         {/* Display completed service images section (for reference) */}
-        {filteredSharedImages.length > 0 && tasks.some(task => task.status === "completed") && (
+        {filteredSharedImages.length > 0 && tasks.some(task => task.status === "completed" || task.status === "in-progress") && (
           <div className="mt-6 border-t pt-4">
-            <h4 className="text-sm font-medium mb-2">All Completed Service Images</h4>
+            <h4 className="text-sm font-medium mb-2">All Service Images</h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {filteredSharedImages.map((image, index) => (
                 <div 
@@ -376,7 +365,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                 className="max-h-[60vh] w-auto object-contain rounded-md"
                 onError={(e) => {
                   console.error("Dialog image failed to load:", selectedImage.url);
-                  (e.target as HTMLImageElement).src = "/placeholder.svg"; // Fallback image
+                  (e.target as HTMLImageElement).src = "/placeholder.svg";
                 }}
               />
             </div>

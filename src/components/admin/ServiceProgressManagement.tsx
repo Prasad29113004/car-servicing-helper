@@ -18,7 +18,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceTask } from "@/types/service";
 import { Image } from "lucide-react";
@@ -40,6 +47,10 @@ export default function ServiceProgressManagement() {
   const [sharedImages, setSharedImages] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<{url: string, title: string} | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<ServiceTask | null>(null);
+  const [isUpdateTaskDialogOpen, setIsUpdateTaskDialogOpen] = useState(false);
+  const [taskStatus, setTaskStatus] = useState<"pending" | "in-progress" | "completed">("pending");
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -155,6 +166,124 @@ export default function ServiceProgressManagement() {
     setIsImageDialogOpen(true);
   };
 
+  const openUpdateTaskDialog = (task: ServiceTask, appointmentId: string) => {
+    setSelectedTask(task);
+    setTaskStatus(task.status);
+    setSelectedAppointmentId(appointmentId);
+    setIsUpdateTaskDialogOpen(true);
+  };
+
+  const updateTaskStatus = () => {
+    if (!selectedTask || !selectedAppointmentId) return;
+    
+    const progressData = serviceProgress[selectedAppointmentId];
+    if (!progressData || !progressData.userId) return;
+    
+    try {
+      const userData = localStorage.getItem(`userData_${progressData.userId}`);
+      if (!userData) return;
+      
+      const user = JSON.parse(userData);
+      if (!user.serviceProgress) return;
+      
+      const progressIndex = user.serviceProgress.findIndex(
+        (p: any) => p.appointmentId === selectedAppointmentId
+      );
+      
+      if (progressIndex === -1) return;
+      
+      // Update the task status
+      const updatedTasks = [...user.serviceProgress[progressIndex].tasks];
+      const taskIndex = updatedTasks.findIndex(t => t.id === selectedTask.id);
+      
+      if (taskIndex === -1) return;
+      
+      // Update the task
+      updatedTasks[taskIndex] = {
+        ...updatedTasks[taskIndex],
+        status: taskStatus,
+        ...(taskStatus === "completed" ? {
+          completedDate: new Date().toLocaleDateString(),
+          technician: "Admin Staff"
+        } : {})
+      };
+      
+      // Calculate new progress
+      const totalTasks = updatedTasks.length;
+      const completedTasks = updatedTasks.filter(t => t.status === "completed").length;
+      const inProgressTasks = updatedTasks.filter(t => t.status === "in-progress").length;
+      const newProgress = Math.round((completedTasks / totalTasks) * 100 + (inProgressTasks / totalTasks) * 30);
+      
+      // Update user data
+      user.serviceProgress[progressIndex].tasks = updatedTasks;
+      user.serviceProgress[progressIndex].progress = newProgress;
+      
+      localStorage.setItem(`userData_${progressData.userId}`, JSON.stringify(user));
+      
+      // Update local state
+      const updatedServiceProgress = { ...serviceProgress };
+      updatedServiceProgress[selectedAppointmentId].tasks = updatedTasks;
+      updatedServiceProgress[selectedAppointmentId].progress = newProgress;
+      setServiceProgress(updatedServiceProgress);
+      
+      // Update appointment status if all tasks are completed
+      if (completedTasks === totalTasks) {
+        const appointmentIndex = user.upcomingServices.findIndex(
+          (a: any) => a.id === selectedAppointmentId
+        );
+        
+        if (appointmentIndex !== -1) {
+          user.upcomingServices[appointmentIndex].status = "Completed";
+          localStorage.setItem(`userData_${progressData.userId}`, JSON.stringify(user));
+          
+          // Update local appointments state
+          const updatedAppointments = [...appointments];
+          const appointmentStateIndex = updatedAppointments.findIndex(a => a.id === selectedAppointmentId);
+          
+          if (appointmentStateIndex !== -1) {
+            updatedAppointments[appointmentStateIndex].status = "Completed";
+            setAppointments(updatedAppointments);
+          }
+        }
+      }
+      
+      // Notify user about the update
+      const newNotification = {
+        id: Date.now(),
+        message: `Your service task "${selectedTask.title}" has been updated to ${taskStatus}`,
+        date: new Date().toISOString(),
+        read: false,
+        details: {
+          type: "service_progress",
+          appointmentId: selectedAppointmentId,
+          taskId: selectedTask.id
+        }
+      };
+      
+      user.notifications = [...(user.notifications || []), newNotification];
+      localStorage.setItem(`userData_${progressData.userId}`, JSON.stringify(user));
+      
+      toast({
+        title: "Task Updated",
+        description: `Task status has been updated to ${taskStatus}.`
+      });
+      
+      // Trigger an event to notify components about the update
+      const event = new Event('serviceImagesUpdated');
+      document.dispatchEvent(event);
+      
+      // Close the dialog
+      setIsUpdateTaskDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update task status",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed": return "bg-green-100 text-green-800";
@@ -243,6 +372,7 @@ export default function ServiceProgressManagement() {
                           <TableHead>Completed</TableHead>
                           <TableHead>Technician</TableHead>
                           <TableHead>Images</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -299,6 +429,15 @@ export default function ServiceProgressManagement() {
                                   </span>
                                 )}
                               </TableCell>
+                              <TableCell>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => openUpdateTaskDialog(task, appointmentId)}
+                                >
+                                  Update
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           );
                         })}
@@ -335,6 +474,34 @@ export default function ServiceProgressManagement() {
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Update Task Dialog */}
+      <Dialog open={isUpdateTaskDialogOpen} onOpenChange={setIsUpdateTaskDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Task Status</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="mb-4">Updating: {selectedTask?.title}</p>
+            <Select value={taskStatus} onValueChange={(value: "pending" | "in-progress" | "completed") => setTaskStatus(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={updateTaskStatus}>Update</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

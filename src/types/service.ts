@@ -9,5 +9,7 @@ export interface ServiceTask {
   images?: {
     url: string;
     title: string;
+    category?: string;
+    customerId?: string;
   }[];
 }
