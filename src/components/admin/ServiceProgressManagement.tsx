@@ -53,6 +53,8 @@ export default function ServiceProgressManagement() {
   const [taskStatus, setTaskStatus] = useState<"pending" | "in-progress" | "completed">("pending");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [customTechnician, setCustomTechnician] = useState<string>("Admin Staff");
+  const [isCustomTechnicianSelected, setIsCustomTechnicianSelected] = useState(false);
+  const [technicianInputValue, setTechnicianInputValue] = useState("");
   const [availableTechnicians, setAvailableTechnicians] = useState<string[]>(["Admin Staff", "John Smith", "Maria Garcia", "David Kim", "Sarah Johnson"]);
   const { toast } = useToast();
   
@@ -174,7 +176,19 @@ export default function ServiceProgressManagement() {
     setTaskStatus(task.status);
     setSelectedAppointmentId(appointmentId);
     setCustomTechnician(task.technician || "Admin Staff");
+    setIsCustomTechnicianSelected(false);
+    setTechnicianInputValue("");
     setIsUpdateTaskDialogOpen(true);
+  };
+
+  const handleTechnicianSelection = (value: string) => {
+    if (value === "custom") {
+      setIsCustomTechnicianSelected(true);
+      setCustomTechnician("custom");
+    } else {
+      setIsCustomTechnicianSelected(false);
+      setCustomTechnician(value);
+    }
   };
 
   const updateTaskStatus = () => {
@@ -202,13 +216,18 @@ export default function ServiceProgressManagement() {
       
       if (taskIndex === -1) return;
       
+      // Determine the technician name to use
+      const finalTechnicianName = isCustomTechnicianSelected 
+        ? technicianInputValue || "Custom Technician" 
+        : customTechnician;
+      
       // Update the task with status and custom technician
       updatedTasks[taskIndex] = {
         ...updatedTasks[taskIndex],
         status: taskStatus,
         ...(taskStatus === "completed" || taskStatus === "in-progress" ? {
           completedDate: taskStatus === "completed" ? new Date().toLocaleDateString() : updatedTasks[taskIndex].completedDate,
-          technician: customTechnician
+          technician: finalTechnicianName
         } : {})
       };
       
@@ -254,7 +273,7 @@ export default function ServiceProgressManagement() {
       // Notify user about the update
       const newNotification = {
         id: Date.now(),
-        message: `Your service task "${selectedTask.title}" has been updated to ${taskStatus} by ${customTechnician}`,
+        message: `Your service task "${selectedTask.title}" has been updated to ${taskStatus} by ${finalTechnicianName}`,
         date: new Date().toISOString(),
         read: false,
         details: {
@@ -269,7 +288,7 @@ export default function ServiceProgressManagement() {
       
       toast({
         title: "Task Updated",
-        description: `Task status has been updated to ${taskStatus} by ${customTechnician}.`
+        description: `Task status has been updated to ${taskStatus} by ${finalTechnicianName}.`
       });
       
       // Trigger an event to notify components about the update
@@ -278,6 +297,8 @@ export default function ServiceProgressManagement() {
       
       // Close the dialog
       setIsUpdateTaskDialogOpen(false);
+      setIsCustomTechnicianSelected(false);
+      setTechnicianInputValue("");
     } catch (error) {
       console.error("Error updating task:", error);
       toast({
@@ -481,7 +502,7 @@ export default function ServiceProgressManagement() {
         </DialogContent>
       </Dialog>
       
-      {/* Update Task Dialog - Adding technician selection */}
+      {/* Update Task Dialog - With fixed technician input */}
       <Dialog open={isUpdateTaskDialogOpen} onOpenChange={setIsUpdateTaskDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -508,7 +529,7 @@ export default function ServiceProgressManagement() {
               <Label htmlFor="technician">Assign Technician</Label>
               <Select 
                 value={customTechnician} 
-                onValueChange={setCustomTechnician}
+                onValueChange={handleTechnicianSelection}
                 disabled={taskStatus === "pending"}
               >
                 <SelectTrigger id="technician">
@@ -522,12 +543,12 @@ export default function ServiceProgressManagement() {
                 </SelectContent>
               </Select>
               
-              {customTechnician === "custom" && (
+              {isCustomTechnicianSelected && (
                 <div className="mt-2">
                   <Input 
                     placeholder="Enter technician name"
-                    value={customTechnician === "custom" ? "" : customTechnician}
-                    onChange={(e) => setCustomTechnician(e.target.value || "Admin Staff")}
+                    value={technicianInputValue}
+                    onChange={(e) => setTechnicianInputValue(e.target.value)}
                   />
                 </div>
               )}
