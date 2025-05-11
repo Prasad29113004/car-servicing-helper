@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Card, 
@@ -26,6 +25,8 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceTask } from "@/types/service";
 import { Image } from "lucide-react";
@@ -51,6 +52,8 @@ export default function ServiceProgressManagement() {
   const [isUpdateTaskDialogOpen, setIsUpdateTaskDialogOpen] = useState(false);
   const [taskStatus, setTaskStatus] = useState<"pending" | "in-progress" | "completed">("pending");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const [customTechnician, setCustomTechnician] = useState<string>("Admin Staff");
+  const [availableTechnicians, setAvailableTechnicians] = useState<string[]>(["Admin Staff", "John Smith", "Maria Garcia", "David Kim", "Sarah Johnson"]);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -170,6 +173,7 @@ export default function ServiceProgressManagement() {
     setSelectedTask(task);
     setTaskStatus(task.status);
     setSelectedAppointmentId(appointmentId);
+    setCustomTechnician(task.technician || "Admin Staff");
     setIsUpdateTaskDialogOpen(true);
   };
 
@@ -198,13 +202,13 @@ export default function ServiceProgressManagement() {
       
       if (taskIndex === -1) return;
       
-      // Update the task
+      // Update the task with status and custom technician
       updatedTasks[taskIndex] = {
         ...updatedTasks[taskIndex],
         status: taskStatus,
-        ...(taskStatus === "completed" ? {
-          completedDate: new Date().toLocaleDateString(),
-          technician: "Admin Staff"
+        ...(taskStatus === "completed" || taskStatus === "in-progress" ? {
+          completedDate: taskStatus === "completed" ? new Date().toLocaleDateString() : updatedTasks[taskIndex].completedDate,
+          technician: customTechnician
         } : {})
       };
       
@@ -250,7 +254,7 @@ export default function ServiceProgressManagement() {
       // Notify user about the update
       const newNotification = {
         id: Date.now(),
-        message: `Your service task "${selectedTask.title}" has been updated to ${taskStatus}`,
+        message: `Your service task "${selectedTask.title}" has been updated to ${taskStatus} by ${customTechnician}`,
         date: new Date().toISOString(),
         read: false,
         details: {
@@ -265,7 +269,7 @@ export default function ServiceProgressManagement() {
       
       toast({
         title: "Task Updated",
-        description: `Task status has been updated to ${taskStatus}.`
+        description: `Task status has been updated to ${taskStatus} by ${customTechnician}.`
       });
       
       // Trigger an event to notify components about the update
@@ -477,25 +481,59 @@ export default function ServiceProgressManagement() {
         </DialogContent>
       </Dialog>
       
-      {/* Update Task Dialog */}
+      {/* Update Task Dialog - Adding technician selection */}
       <Dialog open={isUpdateTaskDialogOpen} onOpenChange={setIsUpdateTaskDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Update Task Status</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <p className="mb-4">Updating: {selectedTask?.title}</p>
-            <Select value={taskStatus} onValueChange={(value: "pending" | "in-progress" | "completed") => setTaskStatus(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in-progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="py-4 space-y-4">
+            <p className="mb-2 font-medium">Updating: {selectedTask?.title}</p>
+            
+            <div className="space-y-2">
+              <Label htmlFor="task-status">Task Status</Label>
+              <Select value={taskStatus} onValueChange={(value: "pending" | "in-progress" | "completed") => setTaskStatus(value)}>
+                <SelectTrigger id="task-status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="technician">Assign Technician</Label>
+              <Select 
+                value={customTechnician} 
+                onValueChange={setCustomTechnician}
+                disabled={taskStatus === "pending"}
+              >
+                <SelectTrigger id="technician">
+                  <SelectValue placeholder="Select technician" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTechnicians.map(tech => (
+                    <SelectItem key={tech} value={tech}>{tech}</SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom...</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {customTechnician === "custom" && (
+                <div className="mt-2">
+                  <Input 
+                    placeholder="Enter technician name"
+                    value={customTechnician === "custom" ? "" : customTechnician}
+                    onChange={(e) => setCustomTechnician(e.target.value || "Admin Staff")}
+                  />
+                </div>
+              )}
+            </div>
           </div>
+          
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
