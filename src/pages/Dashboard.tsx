@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -5,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Plus, Car, Bell, Settings, Clock, CheckCircle, User, RefreshCw } from "lucide-react";
-import { ServiceProgress, ServiceTask } from "@/components/ServiceProgress";
+import { ServiceProgress } from "@/components/ServiceProgress";
+import { ServiceTask } from "@/types/service";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Dialog,
