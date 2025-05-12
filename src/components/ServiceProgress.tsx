@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Check, Clock, AlertCircle, Wrench, ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,65 +145,63 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
     img.customerId === 'all' || (userId && img.customerId === userId)
   );
 
-  // Improved function to determine if an image is relevant to a specific task
+  // COMPLETELY REWRITTEN: Strict task-to-image matching function
   const getTaskRelevantImages = (task: ServiceTask) => {
-    // First check if the task itself has images
+    // First check if the task itself has direct attached images
     if (task.images && task.images.length > 0) {
       return task.images;
     }
     
-    // Enhanced strict matching logic to avoid cross-service contamination
+    // Implement extremely strict matching to ensure images only show for their specific service
     return filteredSharedImages.filter(img => {
       // Basic validation - skip invalid images
       if (!img.title || !task.title) return false;
       
-      const imgTitle = img.title.toLowerCase().trim();
-      const taskTitle = task.title.toLowerCase().trim();
+      const imgTitleLower = img.title.toLowerCase().trim();
+      const taskTitleLower = task.title.toLowerCase().trim();
       
-      // 1. Exact match - highest priority (service name exactly matches image title)
-      if (imgTitle === taskTitle) {
+      // 1. EXACT MATCH - Image title must exactly match the task title (case-insensitive)
+      if (imgTitleLower === taskTitleLower) {
         return true;
       }
       
-      // 2. Service name is prominently part of the image title (not just substring)
-      const imgWords = imgTitle.split(/\s+/);
-      const taskWords = taskTitle.split(/\s+/);
-      
-      // Check if the task title has significant words (like "Oil Change", "AC Service")
-      // that exactly match words in the image title
-      const significantTaskWords = taskWords.filter(word => word.length > 2);
-      
-      // If we find an exact match between a significant task word and an image word, it's relevant
-      if (significantTaskWords.some(taskWord => 
-        imgWords.includes(taskWord) && taskWord.length > 2)) {
-        return true;
+      // 2. For special cases like "Vehicle Inspection" or "Final Inspection"
+      if (taskTitleLower === "vehicle inspection" || taskTitleLower === "initial inspection") {
+        // Only match inspection images specifically labeled for initial inspection
+        return (imgTitleLower === "vehicle inspection" || imgTitleLower === "initial inspection") &&
+               img.category?.toLowerCase() === "inspection";
       }
       
-      // 3. Special category-based matching for common services
-      // Only use category matching as a fallback and only for specific known services
-      if (img.category) {
-        const imgCategory = img.category.toLowerCase().trim();
-        
-        // Match oil change-related tasks with the "service" category
-        if ((taskTitle.includes('oil') || taskTitle.includes('filter')) && 
-            imgCategory === 'service' && imgTitle.includes('oil')) {
-          return true;
-        }
-        
-        // Match AC service tasks with images specifically mentioning AC
-        if (taskTitle.includes('ac') && imgTitle.includes('ac')) {
-          return true;
-        }
-        
-        // Match inspection tasks with inspection images
-        if (taskTitle.includes('inspection') && imgCategory === 'inspection') {
-          return true;
-        }
-        
-        // Match gear/transmission tasks with gear images
-        if ((taskTitle.includes('gear') || taskTitle.includes('transmission')) && 
-            (imgTitle.includes('gear') || imgTitle.includes('transmission'))) {
-          return true;
+      if (taskTitleLower === "final inspection") {
+        // Only match images specifically labeled for final inspection
+        return imgTitleLower === "final inspection" && img.category?.toLowerCase() === "inspection";
+      }
+      
+      // 3. For images that have the exact task name in their title (not just a substring)
+      const imgWords = imgTitleLower.split(/\s+/);
+      const taskWords = taskTitleLower.split(/\s+/);
+      
+      // Only consider a match if ALL significant words from the task title appear in the image title
+      // AND the image has a matching category if available
+      if (taskWords.length > 1 && taskWords.every(word => {
+        // Skip short words like "the", "and", "of"
+        return word.length <= 2 || imgWords.includes(word);
+      })) {
+        // Extra validation: if we have a category, it should align with the task type
+        if (img.category) {
+          const category = img.category.toLowerCase();
+          
+          if (taskTitleLower.includes("oil change") && (category === "service" || imgTitleLower.includes("oil"))) {
+            return true;
+          }
+          
+          if (taskTitleLower.includes("tyre rotation") && (category === "service" || imgTitleLower.includes("tyre"))) {
+            return true;
+          }
+          
+          if (taskTitleLower.includes("brake") && (category === "service" || imgTitleLower.includes("brake"))) {
+            return true;
+          }
         }
       }
       
@@ -243,7 +242,7 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
         <div className="space-y-5 my-4">
           {tasks.length > 0 ? (
             tasks.map((task) => {
-              // Get images strictly relevant to THIS task only
+              // Get images STRICTLY relevant to THIS task only with the new matcher function
               const taskImages = getTaskRelevantImages(task);
 
               return (

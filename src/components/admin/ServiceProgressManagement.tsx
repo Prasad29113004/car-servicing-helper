@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Card, 
@@ -371,29 +372,69 @@ export default function ServiceProgressManagement() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  // Get images relevant to a specific task
+  // Get images relevant to a specific task - using same strict matching as ServiceProgress
   const getRelevantImages = (task: ServiceTask, userId?: string) => {
     // First check if task has its own images
     if (task.images && task.images.length > 0) {
       return task.images;
     }
     
-    // Then look for relevant shared images
+    // Implement extremely strict matching for admin panel
     return sharedImages.filter(img => {
       // Show if shared with all users or specifically with this user
       const isForUser = img.customerId === 'all' || (userId && img.customerId === userId);
-      
       if (!isForUser) return false;
       
-      const imgTitle = img.title?.toLowerCase() || '';
-      const taskTitle = task.title?.toLowerCase() || '';
+      // Basic validation - skip invalid images
+      if (!img.title || !task.title) return false;
       
-      // Check if relevant to this task (title match or category match)
-      return imgTitle.includes(taskTitle) || 
-        taskTitle.includes(imgTitle) ||
-        (task.title?.toLowerCase().includes('inspection') && img.category?.toLowerCase() === 'inspection') ||
-        (task.title?.toLowerCase().includes('diagnostics') && img.category?.toLowerCase() === 'diagnostics') ||
-        (task.title?.toLowerCase().includes('oil') && img.category?.toLowerCase() === 'service');
+      const imgTitleLower = img.title.toLowerCase().trim();
+      const taskTitleLower = task.title.toLowerCase().trim();
+      
+      // 1. EXACT MATCH - Image title must exactly match the task title (case-insensitive)
+      if (imgTitleLower === taskTitleLower) {
+        return true;
+      }
+      
+      // 2. For special cases like "Vehicle Inspection" or "Final Inspection"
+      if (taskTitleLower === "vehicle inspection" || taskTitleLower === "initial inspection") {
+        return (imgTitleLower === "vehicle inspection" || imgTitleLower === "initial inspection") &&
+               img.category?.toLowerCase() === "inspection";
+      }
+      
+      if (taskTitleLower === "final inspection") {
+        return imgTitleLower === "final inspection" && img.category?.toLowerCase() === "inspection";
+      }
+      
+      // 3. For images that have the exact task name in their title (not just a substring)
+      const imgWords = imgTitleLower.split(/\s+/);
+      const taskWords = taskTitleLower.split(/\s+/);
+      
+      // Only consider a match if ALL significant words from the task title appear in the image title
+      if (taskWords.length > 1 && taskWords.every(word => {
+        // Skip short words like "the", "and", "of"
+        return word.length <= 2 || imgWords.includes(word);
+      })) {
+        // Extra validation: if we have a category, it should align with the task type
+        if (img.category) {
+          const category = img.category.toLowerCase();
+          
+          if (taskTitleLower.includes("oil change") && (category === "service" || imgTitleLower.includes("oil"))) {
+            return true;
+          }
+          
+          if (taskTitleLower.includes("tyre rotation") && (category === "service" || imgTitleLower.includes("tyre"))) {
+            return true;
+          }
+          
+          if (taskTitleLower.includes("brake") && (category === "service" || imgTitleLower.includes("brake"))) {
+            return true;
+          }
+        }
+      }
+      
+      // No match found
+      return false;
     });
   };
 
