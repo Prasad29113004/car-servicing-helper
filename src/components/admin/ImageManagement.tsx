@@ -1,3 +1,4 @@
+
 import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,9 @@ const ImageManagement = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<UserData[]>([]);
+  
+  // Add a helper text state to guide users on image naming
+  const [titleHelperText, setTitleHelperText] = useState<string>("Use exact service name (e.g., 'Oil Change', 'AC Service', etc.)");
 
   useEffect(() => {
     // Load images from localStorage on component mount
@@ -105,8 +109,10 @@ const ImageManagement = () => {
       // Force a refresh on any loaded ServiceProgress components by setting a flag
       localStorage.setItem('imageUpdatedTimestamp', Date.now().toString());
       
-      // Trigger a storage event to notify other components
+      // Trigger events to ensure image updates are detected
       window.dispatchEvent(new Event('storage'));
+      const customEvent = new Event('serviceImagesUpdated');
+      document.dispatchEvent(customEvent);
     } catch (error) {
       console.error("Error saving images to storage:", error);
     }
@@ -174,7 +180,7 @@ const ImageManagement = () => {
     
     toast({
       title: "Success",
-      description: `Image uploaded successfully and shared with ${newImageData.customerId === 'all' ? 'all customers' : customerName}`
+      description: `Image uploaded successfully with title "${newImageData.title}" and shared with ${newImageData.customerId === 'all' ? 'all customers' : customerName}`
     });
   };
 
@@ -230,7 +236,8 @@ const ImageManagement = () => {
       <Alert className="bg-blue-50 border-blue-200">
         <Info className="h-4 w-4 text-blue-500" />
         <AlertDescription className="text-blue-700">
-          Images uploaded here will automatically be available in customer service progress sections
+          Images uploaded here will automatically appear in customer service progress sections. 
+          For proper matching, use the exact service name as the image title.
         </AlertDescription>
       </Alert>
 
@@ -322,13 +329,16 @@ const ImageManagement = () => {
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="imageTitle">Image Title *</Label>
+              <Label htmlFor="imageTitle">Image Title * (Service Name)</Label>
               <Input
                 id="imageTitle"
                 value={newImageData.title}
                 onChange={(e) => setNewImageData({...newImageData, title: e.target.value})}
-                placeholder="Enter image title"
+                placeholder="Enter exact service name (e.g., Oil Change)"
               />
+              <p className="text-xs text-amber-600">
+                <strong>Important:</strong> Use the exact service name to ensure proper matching.
+              </p>
             </div>
             
             <div className="grid gap-2">
@@ -341,6 +351,7 @@ const ImageManagement = () => {
               >
                 <option value="general">General</option>
                 <option value="service">Service</option>
+                <option value="inspection">Inspection</option>
                 <option value="parts">Parts</option>
               </select>
             </div>

@@ -144,51 +144,69 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
     img.customerId === 'all' || (userId && img.customerId === userId)
   );
 
-  // Function to determine if an image is relevant to a specific task
+  // Improved function to determine if an image is relevant to a specific task
   const getTaskRelevantImages = (task: ServiceTask) => {
     // First check if the task itself has images
     if (task.images && task.images.length > 0) {
       return task.images;
     }
     
-    // Otherwise check for relevant shared images based on strict matching criteria
+    // Enhanced strict matching logic to avoid cross-service contamination
     return filteredSharedImages.filter(img => {
-      const imgTitle = img.title?.toLowerCase().trim() || '';
-      const taskTitle = task.title?.toLowerCase().trim() || '';
-      const imgCategory = img.category?.toLowerCase().trim() || '';
+      // Basic validation - skip invalid images
+      if (!img.title || !task.title) return false;
       
-      // First check for exact task title match (highest priority)
+      const imgTitle = img.title.toLowerCase().trim();
+      const taskTitle = task.title.toLowerCase().trim();
+      
+      // 1. Exact match - highest priority (service name exactly matches image title)
       if (imgTitle === taskTitle) {
         return true;
       }
       
-      // Check if image title contains the task title as a whole word
-      const imgTitleWords = imgTitle.split(/\s+/);
-      const taskTitleWords = taskTitle.split(/\s+/);
+      // 2. Service name is prominently part of the image title (not just substring)
+      const imgWords = imgTitle.split(/\s+/);
+      const taskWords = taskTitle.split(/\s+/);
       
-      // Check if any task word is fully contained in any image word
-      const hasWordMatch = taskTitleWords.some(taskWord => 
-        imgTitleWords.some(imgWord => imgWord === taskWord && taskWord.length > 2)
-      );
+      // Check if the task title has significant words (like "Oil Change", "AC Service")
+      // that exactly match words in the image title
+      const significantTaskWords = taskWords.filter(word => word.length > 2);
       
-      if (hasWordMatch) {
+      // If we find an exact match between a significant task word and an image word, it's relevant
+      if (significantTaskWords.some(taskWord => 
+        imgWords.includes(taskWord) && taskWord.length > 2)) {
         return true;
       }
       
-      // Match based on specific categories
-      if (taskTitle.includes('oil change') && (imgCategory === 'service' || imgTitle.includes('oil'))) {
-        return true;
+      // 3. Special category-based matching for common services
+      // Only use category matching as a fallback and only for specific known services
+      if (img.category) {
+        const imgCategory = img.category.toLowerCase().trim();
+        
+        // Match oil change-related tasks with the "service" category
+        if ((taskTitle.includes('oil') || taskTitle.includes('filter')) && 
+            imgCategory === 'service' && imgTitle.includes('oil')) {
+          return true;
+        }
+        
+        // Match AC service tasks with images specifically mentioning AC
+        if (taskTitle.includes('ac') && imgTitle.includes('ac')) {
+          return true;
+        }
+        
+        // Match inspection tasks with inspection images
+        if (taskTitle.includes('inspection') && imgCategory === 'inspection') {
+          return true;
+        }
+        
+        // Match gear/transmission tasks with gear images
+        if ((taskTitle.includes('gear') || taskTitle.includes('transmission')) && 
+            (imgTitle.includes('gear') || imgTitle.includes('transmission'))) {
+          return true;
+        }
       }
       
-      if (taskTitle.includes('ac') && (imgCategory === 'service' || imgTitle.includes('ac'))) {
-        return true;
-      }
-      
-      if (taskTitle.includes('inspection') && imgCategory === 'inspection') {
-        return true;
-      }
-      
-      // No match
+      // No match found
       return false;
     });
   };
@@ -281,7 +299,9 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
                       {/* Display task-specific images - ONLY if task is completed or in progress */}
                       {(task.status === "completed" || task.status === "in-progress") && taskImages && taskImages.length > 0 && (
                         <div className="mt-3">
-                          <p className="text-xs text-gray-500 mb-2">{taskImages === task.images ? "Task Images:" : "Reference Images:"}</p>
+                          <p className="text-xs text-gray-500 mb-2">
+                            {taskImages === task.images ? "Task Images:" : "Service Images:"}
+                          </p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {taskImages.map((image, index) => (
                               <div 
@@ -320,37 +340,6 @@ export function ServiceProgress({ vehicleName, progress, tasks, appointmentId, u
             <p className="text-center text-gray-500 py-8">No service tasks available yet.</p>
           )}
         </div>
-
-        {/* Display completed service images section (for reference) */}
-        {filteredSharedImages.length > 0 && tasks.some(task => task.status === "completed" || task.status === "in-progress") && (
-          <div className="mt-6 border-t pt-4">
-            <h4 className="text-sm font-medium mb-2">All Service Images</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {filteredSharedImages.map((image, index) => (
-                <div 
-                  key={`all-shared-${index}`} 
-                  className="relative group cursor-pointer"
-                  onClick={() => openImageDialog(image)}
-                >
-                  <div className="aspect-square overflow-hidden rounded-md border">
-                    <img 
-                      src={image.url} 
-                      alt={image.title || "Reference image"}
-                      className="w-full h-full object-cover transition-transform hover:scale-105"
-                      onError={(e) => {
-                        console.error("All images section - image failed to load:", image.url);
-                        (e.target as HTMLImageElement).src = "/placeholder.svg";
-                      }}
-                    />
-                  </div>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-1 text-xs truncate">
-                    {image.title || "Reference image"}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </CardContent>
       
       {/* Image Preview Dialog */}
