@@ -52,20 +52,24 @@ export default function ServiceProgressManagement() {
   const [isUpdateTaskDialogOpen, setIsUpdateTaskDialogOpen] = useState(false);
   const [taskStatus, setTaskStatus] = useState<"pending" | "in-progress" | "completed">("pending");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
-  const [customTechnician, setCustomTechnician] = useState<string>("Admin Staff");
+  const [customTechnician, setCustomTechnician] = useState<string>("");
   const [isCustomTechnicianSelected, setIsCustomTechnicianSelected] = useState(false);
   const [technicianInputValue, setTechnicianInputValue] = useState("");
-  const [availableTechnicians, setAvailableTechnicians] = useState<string[]>(["Admin Staff", "John Smith", "Maria Garcia", "David Kim", "Sarah Johnson"]);
+  const [recentTechnicians, setRecentTechnicians] = useState<string[]>([]);
   const { toast } = useToast();
   
   useEffect(() => {
     loadAllProgressData();
     loadSharedImages();
+    loadRecentTechnicians();
 
     // Set up event listener for storage changes
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'sharedServiceImages' || e.key === 'adminServiceImages' || e.key === null) {
         loadSharedImages();
+      }
+      if (e.key === 'recentTechnicians' || e.key === null) {
+        loadRecentTechnicians();
       }
     };
     
@@ -75,6 +79,44 @@ export default function ServiceProgressManagement() {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
+  
+  // Load recently assigned technicians from localStorage
+  const loadRecentTechnicians = () => {
+    try {
+      const storedTechnicians = localStorage.getItem('recentTechnicians');
+      if (storedTechnicians) {
+        const parsedTechnicians = JSON.parse(storedTechnicians);
+        if (Array.isArray(parsedTechnicians)) {
+          setRecentTechnicians(parsedTechnicians);
+        }
+      } else {
+        // Initialize with admin staff only if no recent technicians exist
+        setRecentTechnicians(['Admin Staff']);
+        localStorage.setItem('recentTechnicians', JSON.stringify(['Admin Staff']));
+      }
+    } catch (error) {
+      console.error("Error loading recent technicians:", error);
+      setRecentTechnicians(['Admin Staff']);
+    }
+  };
+
+  // Save a technician to the recent technicians list
+  const addToRecentTechnicians = (technicianName: string) => {
+    if (!technicianName || technicianName.trim() === '') return;
+    
+    try {
+      // Create a new array with the new technician at the front and no duplicates
+      const updatedTechnicians = [
+        technicianName,
+        ...recentTechnicians.filter(tech => tech !== technicianName)
+      ].slice(0, 10); // Keep only the 10 most recent
+      
+      setRecentTechnicians(updatedTechnicians);
+      localStorage.setItem('recentTechnicians', JSON.stringify(updatedTechnicians));
+    } catch (error) {
+      console.error("Error saving recent technicians:", error);
+    }
+  };
   
   const loadAllProgressData = () => {
     const allProgress: {[key: string]: any} = {};
@@ -175,9 +217,9 @@ export default function ServiceProgressManagement() {
     setSelectedTask(task);
     setTaskStatus(task.status);
     setSelectedAppointmentId(appointmentId);
-    setCustomTechnician(task.technician || "Admin Staff");
+    setCustomTechnician(task.technician || "");
     setIsCustomTechnicianSelected(false);
-    setTechnicianInputValue("");
+    setTechnicianInputValue(task.technician || "");
     setIsUpdateTaskDialogOpen(true);
   };
 
@@ -188,6 +230,7 @@ export default function ServiceProgressManagement() {
     } else {
       setIsCustomTechnicianSelected(false);
       setCustomTechnician(value);
+      setTechnicianInputValue(value);
     }
   };
 
@@ -218,7 +261,7 @@ export default function ServiceProgressManagement() {
       
       // Determine the technician name to use
       const finalTechnicianName = isCustomTechnicianSelected 
-        ? technicianInputValue || "Custom Technician" 
+        ? technicianInputValue.trim() || "Unknown Technician" 
         : customTechnician;
       
       // Update the task with status and custom technician
@@ -230,6 +273,11 @@ export default function ServiceProgressManagement() {
           technician: finalTechnicianName
         } : {})
       };
+      
+      // Add the technician to recent list if task is in-progress or completed
+      if (taskStatus === "completed" || taskStatus === "in-progress") {
+        addToRecentTechnicians(finalTechnicianName);
+      }
       
       // Calculate new progress
       const totalTasks = updatedTasks.length;
@@ -502,7 +550,7 @@ export default function ServiceProgressManagement() {
         </DialogContent>
       </Dialog>
       
-      {/* Update Task Dialog - With fixed technician input */}
+      {/* Update Task Dialog with improved technician selection */}
       <Dialog open={isUpdateTaskDialogOpen} onOpenChange={setIsUpdateTaskDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -526,30 +574,45 @@ export default function ServiceProgressManagement() {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="technician">Assign Technician</Label>
-              <Select 
-                value={customTechnician} 
-                onValueChange={handleTechnicianSelection}
-                disabled={taskStatus === "pending"}
-              >
-                <SelectTrigger id="technician">
-                  <SelectValue placeholder="Select technician" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTechnicians.map(tech => (
-                    <SelectItem key={tech} value={tech}>{tech}</SelectItem>
-                  ))}
-                  <SelectItem value="custom">Custom...</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="technician">
+                {isCustomTechnicianSelected ? "Enter Technician Name" : "Assign Technician"}
+              </Label>
               
-              {isCustomTechnicianSelected && (
-                <div className="mt-2">
+              {!isCustomTechnicianSelected ? (
+                <>
+                  <Select 
+                    value={customTechnician} 
+                    onValueChange={handleTechnicianSelection}
+                    disabled={taskStatus === "pending"}
+                  >
+                    <SelectTrigger id="technician">
+                      <SelectValue placeholder="Select technician" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {recentTechnicians.map(tech => (
+                        <SelectItem key={tech} value={tech}>{tech}</SelectItem>
+                      ))}
+                      <SelectItem value="custom">Custom...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
+              ) : (
+                <div className="flex gap-2">
                   <Input 
+                    id="custom-technician"
                     placeholder="Enter technician name"
                     value={technicianInputValue}
                     onChange={(e) => setTechnicianInputValue(e.target.value)}
+                    className="flex-grow"
+                    autoFocus
                   />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsCustomTechnicianSelected(false)}
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
                 </div>
               )}
             </div>
