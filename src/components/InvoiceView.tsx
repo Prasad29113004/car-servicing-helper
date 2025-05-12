@@ -77,11 +77,12 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
             const serviceCount = invoice.services.length;
             const estimatedPricePerService = serviceCount > 0 ? (totalAmount / serviceCount) : 0;
             
+            // Format the currency symbol consistently
+            const currencySymbol = invoice.amount.charAt(0) || '₹';
+            
             const serviceItems = invoice.services.map(service => ({
               name: service,
-              price: serviceCount > 0 
-                ? formatCurrency(estimatedPricePerService) 
-                : invoice.amount
+              price: `${currencySymbol}${estimatedPricePerService.toLocaleString('en-IN')}`
             }));
             
             return { ...invoice, serviceItems };

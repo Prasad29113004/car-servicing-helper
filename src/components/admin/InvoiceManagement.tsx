@@ -27,6 +27,11 @@ interface Booking {
   amount: string;
 }
 
+interface ServiceItem {
+  name: string;
+  price: string;
+}
+
 interface Invoice {
   invoiceNumber: string;
   customerName: string;
@@ -37,6 +42,7 @@ interface Invoice {
   bookingId: string;
   paymentMethod?: string;
   services: string[];
+  serviceItems?: ServiceItem[];
 }
 
 const InvoiceManagement = () => {
@@ -104,6 +110,25 @@ const InvoiceManagement = () => {
   };
   
   const handleViewInvoice = (invoice: Invoice) => {
+    // If serviceItems aren't defined, create them from the services array
+    if (!invoice.serviceItems) {
+      const totalAmount = parseFloat(invoice.amount.replace(/[^\d.]/g, ''));
+      const serviceCount = invoice.services.length;
+      
+      // Calculate per-service price - divide total evenly among services
+      const pricePerService = serviceCount > 0 ? totalAmount / serviceCount : 0;
+      
+      // Format the currency symbol consistently
+      const currencySymbol = invoice.amount.charAt(0) || '₹';
+      
+      const serviceItems = invoice.services.map(service => ({
+        name: service,
+        price: `${currencySymbol}${pricePerService.toLocaleString('en-IN')}`
+      }));
+      
+      invoice = { ...invoice, serviceItems };
+    }
+    
     setCurrentInvoice(invoice);
     setShowInvoiceDialog(true);
   };
@@ -192,6 +217,21 @@ const InvoiceManagement = () => {
     
     // Create a new invoice
     const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+    
+    // Calculate individual service prices by dividing the total amount
+    const totalAmount = parseFloat(selectedBooking.amount.replace(/[^\d.]/g, ''));
+    const serviceCount = selectedBooking.services.length;
+    const pricePerService = serviceCount > 0 ? totalAmount / serviceCount : 0;
+    
+    // Format the currency symbol consistently
+    const currencySymbol = selectedBooking.amount.charAt(0) || '₹';
+    
+    // Create service items with calculated prices
+    const serviceItems = selectedBooking.services.map(service => ({
+      name: service,
+      price: `${currencySymbol}${pricePerService.toLocaleString('en-IN')}`
+    }));
+    
     const newInvoice: Invoice = {
       invoiceNumber,
       customerName: selectedBooking.name,
@@ -201,6 +241,7 @@ const InvoiceManagement = () => {
       date: new Date().toISOString().slice(0, 10),
       bookingId: selectedBooking.id,
       services: selectedBooking.services,
+      serviceItems: serviceItems
     };
     
     // Update the invoices list
@@ -276,6 +317,105 @@ const InvoiceManagement = () => {
     setSelectedBooking(null);
   };
 
+  // Helper function to mark invoice as paid
+  const handleMarkAsPaid = (invoice: Invoice) => {
+    const updatedInvoice = { ...invoice, status: "Paid", paymentMethod: "card" };
+    
+    // Update invoice in state
+    const updatedInvoices = invoices.map(inv => 
+      inv.invoiceNumber === invoice.invoiceNumber ? updatedInvoice : inv
+    );
+    setInvoices(updatedInvoices);
+    
+    if (currentInvoice?.invoiceNumber === invoice.invoiceNumber) {
+      setCurrentInvoice(updatedInvoice);
+    }
+    
+    // Find user ID for this invoice
+    const keys = Object.keys(localStorage);
+    for (const key of keys) {
+      if (key.startsWith("invoices_")) {
+        const userId = key.replace("invoices_", "");
+        const userInvoicesStr = localStorage.getItem(key);
+        
+        if (userInvoicesStr) {
+          try {
+            const userInvoices = JSON.parse(userInvoicesStr);
+            const invoiceIndex = userInvoices.findIndex((inv: Invoice) => 
+              inv.invoiceNumber === invoice.invoiceNumber
+            );
+            
+            if (invoiceIndex !== -1) {
+              // Update the invoice status
+              userInvoices[invoiceIndex] = updatedInvoice;
+              localStorage.setItem(key, JSON.stringify(userInvoices));
+              
+              // Update the revenue data in admin stats too (new!)
+              const adminStatsKey = `adminStats`;
+              const statsStr = localStorage.getItem(adminStatsKey);
+              const stats = statsStr ? JSON.parse(statsStr) : {
+                totalRevenue: 0,
+                monthlyRevenue: 0,
+                paidInvoices: 0
+              };
+              
+              // Extract numerical value from invoice amount
+              const amount = parseFloat(invoice.amount.replace(/[^\d.]/g, '')) || 0;
+              
+              // Update total revenue
+              stats.totalRevenue = (stats.totalRevenue || 0) + amount;
+              
+              // Check if this is current month
+              const invoiceDate = new Date(invoice.date);
+              const currentDate = new Date();
+              if (invoiceDate.getMonth() === currentDate.getMonth() && 
+                  invoiceDate.getFullYear() === currentDate.getFullYear()) {
+                stats.monthlyRevenue = (stats.monthlyRevenue || 0) + amount;
+              }
+              
+              stats.paidInvoices = (stats.paidInvoices || 0) + 1;
+              
+              // Save updated stats
+              localStorage.setItem(adminStatsKey, JSON.stringify(stats));
+              
+              // Add notification for payment
+              const notificationsKey = `notifications_${userId}`;
+              const notificationsStr = localStorage.getItem(notificationsKey);
+              const notifications = notificationsStr ? JSON.parse(notificationsStr) : [];
+              
+              notifications.push({
+                id: Date.now().toString(),
+                title: "Payment Received",
+                message: `Your payment for invoice #${invoice.invoiceNumber} has been processed successfully.`,
+                date: new Date().toISOString(),
+                read: false,
+                type: "payment",
+                invoiceNumber: invoice.invoiceNumber,
+              });
+              
+              localStorage.setItem(notificationsKey, JSON.stringify(notifications));
+              
+              // Trigger storage event to update other components
+              window.dispatchEvent(new StorageEvent('storage', {
+                key: `adminStats`,
+                newValue: localStorage.getItem(adminStatsKey)
+              }));
+              
+              toast({
+                title: "Invoice marked as paid",
+                description: `Invoice #${invoice.invoiceNumber} has been marked as paid.`,
+              });
+              
+              break;
+            }
+          } catch (error) {
+            console.error(`Error processing invoices for user ${userId}:`, error);
+          }
+        }
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold tracking-tight">Invoice Management</h2>
@@ -329,6 +469,16 @@ const InvoiceManagement = () => {
                               <Button variant="ghost" size="icon">
                                 <Download className="h-4 w-4" />
                               </Button>
+                              {invoice.status !== "Paid" && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-green-600 border-green-600 hover:bg-green-50"
+                                  onClick={() => handleMarkAsPaid(invoice)}
+                                >
+                                  Mark Paid
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -443,12 +593,23 @@ const InvoiceManagement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentInvoice?.services.map((service, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                      <td className="py-2">{service}</td>
-                      <td className="text-right py-2">-</td>
-                    </tr>
-                  ))}
+                  {currentInvoice?.serviceItems ? (
+                    // Display service items with prices if available
+                    currentInvoice.serviceItems.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="py-2">{item.name}</td>
+                        <td className="text-right py-2">{item.price}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    // Fallback to just service names
+                    currentInvoice?.services.map((service, index) => (
+                      <tr key={index} className="border-b border-gray-200">
+                        <td className="py-2">{service}</td>
+                        <td className="text-right py-2">-</td>
+                      </tr>
+                    ))
+                  )}
                   
                   <tr>
                     <td className="py-4 text-right font-bold">Total</td>
@@ -479,13 +640,31 @@ const InvoiceManagement = () => {
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>
-              <Button onClick={() => {
-                setShowInvoiceDialog(false);
-                handleSendInvoice(currentInvoice!);
-              }}>
-                <Send className="mr-2 h-4 w-4" />
-                Send to Customer
-              </Button>
+              {currentInvoice?.status !== "Paid" ? (
+                <>
+                  <Button onClick={() => {
+                    setShowInvoiceDialog(false);
+                    handleSendInvoice(currentInvoice!);
+                  }}>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send to Customer
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="text-green-600 border-green-600 hover:bg-green-50"
+                    onClick={() => {
+                      handleMarkAsPaid(currentInvoice!);
+                    }}
+                  >
+                    Mark as Paid
+                  </Button>
+                </>
+              ) : (
+                <Button variant="default" disabled>
+                  <Send className="mr-2 h-4 w-4" />
+                  Already Paid
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
