@@ -157,6 +157,43 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
     });
   };
   
+  // Updated to handle revenue tracking for admin dashboard
+  const updateAdminRevenueStats = (invoice: Invoice) => {
+    // Retrieve the current admin stats
+    const statsKey = 'adminStats';
+    const statsStr = localStorage.getItem(statsKey);
+    let stats = statsStr ? JSON.parse(statsStr) : {
+      totalRevenue: 0,
+      monthlyRevenue: 0,
+      paidInvoices: 0
+    };
+    
+    // Extract numerical amount value from invoice
+    const amount = parseFloat(invoice.amount.replace(/[^\d.]/g, '')) || 0;
+    
+    // Update total revenue
+    stats.totalRevenue = (stats.totalRevenue || 0) + amount;
+    
+    // Check if this is current month
+    const invoiceDate = new Date(invoice.date);
+    const currentDate = new Date();
+    if (invoiceDate.getMonth() === currentDate.getMonth() && 
+        invoiceDate.getFullYear() === currentDate.getFullYear()) {
+      stats.monthlyRevenue = (stats.monthlyRevenue || 0) + amount;
+    }
+    
+    stats.paidInvoices = (stats.paidInvoices || 0) + 1;
+    
+    // Save updated stats
+    localStorage.setItem(statsKey, JSON.stringify(stats));
+    
+    // Trigger storage event to update other components
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: statsKey,
+      newValue: localStorage.getItem(statsKey)
+    }));
+  };
+  
   const handleDownloadInvoice = () => {
     toast({
       title: "Download started",
@@ -331,7 +368,13 @@ const InvoiceView = ({ userId }: InvoiceViewProps) => {
                   Close
                 </Button>
                 {currentInvoice.status !== "Paid" ? (
-                  <Button onClick={() => handlePayInvoice(currentInvoice)}>
+                  <Button onClick={() => {
+                    handlePayInvoice(currentInvoice);
+                    // Update admin revenue stats when payment is initiated
+                    if (currentInvoice.status !== "Paid") {
+                      updateAdminRevenueStats(currentInvoice);
+                    }
+                  }}>
                     <CreditCard className="mr-2 h-4 w-4" />
                     Pay Now
                   </Button>

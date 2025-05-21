@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
@@ -69,6 +68,12 @@ interface Appointment {
   customerName?: string;
 }
 
+interface RevenueStats {
+  totalRevenue: number;
+  monthlyRevenue: number;
+  paidInvoices: number;
+}
+
 const Admin = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const { toast } = useToast();
@@ -84,6 +89,13 @@ const Admin = () => {
       userId?: string;
     }
   }>({});
+  
+  // New state for revenue statistics
+  const [revenueStats, setRevenueStats] = useState<RevenueStats>({
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    paidInvoices: 0
+  });
   
   // Dialog state
   const [editAppointmentId, setEditAppointmentId] = useState<string | null>(null);
@@ -103,6 +115,19 @@ const Admin = () => {
     checkAdminStatus();
     if (isAdmin) {
       loadAllAppointments();
+      loadRevenueStats();
+      
+      // Listen for storage events to update revenue stats
+      const handleStorageChange = (e: StorageEvent) => {
+        if (e.key === 'adminStats' || e.key === null) {
+          loadRevenueStats();
+        }
+      };
+      
+      window.addEventListener('storage', handleStorageChange);
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
     }
   }, [isAdmin]);
 
@@ -274,6 +299,38 @@ const Admin = () => {
     
     console.log("Loaded service progress:", allProgress);
     console.log("Loaded appointments:", allAppointments);
+  };
+
+  // New function to load revenue statistics
+  const loadRevenueStats = () => {
+    const statsStr = localStorage.getItem('adminStats');
+    if (statsStr) {
+      try {
+        const stats = JSON.parse(statsStr);
+        setRevenueStats({
+          totalRevenue: stats.totalRevenue || 0,
+          monthlyRevenue: stats.monthlyRevenue || 0,
+          paidInvoices: stats.paidInvoices || 0
+        });
+        console.log("Loaded revenue stats:", stats);
+      } catch (error) {
+        console.error("Error loading revenue stats:", error);
+        setRevenueStats({
+          totalRevenue: 0,
+          monthlyRevenue: 0,
+          paidInvoices: 0
+        });
+      }
+    } else {
+      // Initialize revenue stats if they don't exist
+      const initialStats = {
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        paidInvoices: 0
+      };
+      localStorage.setItem('adminStats', JSON.stringify(initialStats));
+      setRevenueStats(initialStats);
+    }
   };
 
   // Helper function to generate tasks based on service name
@@ -782,20 +839,13 @@ const Admin = () => {
                       <div>
                         <p className="text-sm font-medium text-gray-500">Total Revenue</p>
                         <p className="text-2xl font-bold">
-                          ₹{appointments.reduce((sum, appointment) => 
-                            sum + (parseFloat(appointment.amount) || 0), 0).toLocaleString()}
+                          ₹{revenueStats.totalRevenue.toLocaleString()}
                         </p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-500">This Month</p>
                         <p className="text-2xl font-bold">
-                          ₹{appointments.filter(a => {
-                            const date = new Date(a.date);
-                            const now = new Date();
-                            return date.getMonth() === now.getMonth() && 
-                                  date.getFullYear() === now.getFullYear();
-                          }).reduce((sum, appointment) => 
-                            sum + (parseFloat(appointment.amount) || 0), 0).toLocaleString()}
+                          ₹{revenueStats.monthlyRevenue.toLocaleString()}
                         </p>
                       </div>
                     </div>
