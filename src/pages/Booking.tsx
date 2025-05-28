@@ -15,6 +15,7 @@ import { CalendarIcon, CheckCircle2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { sendBookingConfirmation } from "@/services/emailService";
 
 // Get services from localStorage or use default
 const getServicesFromStorage = () => {
@@ -106,7 +107,7 @@ const Booking = () => {
     return regex.test(phoneNumber);
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (step === 1 && selectedServices.length === 0) {
       toast({
         title: "Please select at least one service",
@@ -191,6 +192,44 @@ const Booking = () => {
           bookingId: bookingId,
         });
         localStorage.setItem(notificationsKey, JSON.stringify(notifications));
+        
+        // Send confirmation email
+        try {
+          const emailResult = await sendBookingConfirmation({
+            name,
+            email,
+            phone,
+            services: bookingData.services,
+            date: bookingData.date,
+            time,
+            carMake,
+            carModel,
+            carYear,
+            licensePlate,
+            amount: bookingData.amount,
+            bookingId
+          });
+
+          if (emailResult.success) {
+            toast({
+              title: "Booking Successful",
+              description: "Confirmation email sent successfully!",
+            });
+          } else {
+            toast({
+              title: "Booking Successful",
+              description: "Booking confirmed, but email sending failed. Please contact us for confirmation.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error("Email sending error:", error);
+          toast({
+            title: "Booking Successful",
+            description: "Booking confirmed, but email sending failed. Please contact us for confirmation.",
+            variant: "destructive",
+          });
+        }
         
         setTimeout(() => {
           setBookingComplete(true);
@@ -606,14 +645,10 @@ const Booking = () => {
                   </div>
                 </div>
                 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 text-yellow-800 text-sm mb-6 w-full max-w-md">
-                  <p className="font-medium">Payment Information</p>
-                  <p className="mt-1">Payment will be collected after your service is completed.</p>
+                <div className="bg-green-50 border border-green-200 rounded-md p-3 text-green-800 text-sm mb-6 w-full max-w-md">
+                  <p className="font-medium">Email Confirmation</p>
+                  <p className="mt-1">A confirmation email has been sent to {email} with all booking details.</p>
                 </div>
-                
-                <p className="text-gray-500 mb-6">
-                  We've sent a confirmation email to {email} with all the details.
-                </p>
                 
                 <div className="flex space-x-4">
                   <Button variant="outline" onClick={() => navigate("/dashboard")}>
