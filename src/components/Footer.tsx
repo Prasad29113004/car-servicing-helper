@@ -68,16 +68,16 @@ export default function Footer() {
             <h3 className="text-sm font-semibold text-white tracking-wider uppercase">Contact</h3>
             <ul className="mt-4 space-y-2">
               <li className="text-gray-400">
-                123 Service Road
+                Dighori, Nagpur
               </li>
               <li className="text-gray-400">
-                Autoville, AV 12345
+                Maharashtra-440034
               </li>
               <li className="text-gray-400">
                 info@carservice.com
               </li>
               <li className="text-gray-400">
-                +1 (555) 123-4567
+                +91 78956 87964
               </li>
             </ul>
           </div>
