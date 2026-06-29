@@ -124,7 +124,7 @@ const Contact = () => {
                         <Label htmlFor="name">Full Name</Label>
                         <Input
                           id="name"
-                          placeholder="John Doe"
+                          placeholder="Full Name"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                           required
@@ -136,7 +136,7 @@ const Contact = () => {
                           <Input
                             id="email"
                             type="email"
-                            placeholder="john@example.com"
+                            placeholder="you@example.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
@@ -146,7 +146,7 @@ const Contact = () => {
                           <Label htmlFor="phone">Phone (Optional)</Label>
                           <Input
                             id="phone"
-                            placeholder="(123) 456-7890"
+                            placeholder="+91 98765 43210"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
                           />
