@@ -387,7 +387,7 @@ const Dashboard = () => {
               <Button variant="outline" onClick={refreshUserData} title="Refresh Data">
                 <RefreshCw className="h-4 w-4" />
               </Button>
-              onClick={() => navigate("/booking")}
+              <Button onClick={() => navigate('/booking')} className="...">
                 <Plus className="mr-1 h-4 w-4" />
                 Book Service
               </Button>
