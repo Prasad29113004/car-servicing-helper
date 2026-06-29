@@ -16,6 +16,8 @@ import Payment from "./pages/Payment";
 import Contact from "./pages/Contact";
 import Services from "./pages/Services";
 import NotFound from "./pages/NotFound";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 
 const queryClient = new QueryClient();
 
@@ -39,7 +41,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/about" element={<About />} />
@@ -53,7 +55,7 @@ const App = () => {
             <Route path="/services" element={<Services />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );
