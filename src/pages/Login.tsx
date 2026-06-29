@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Car, KeyRound, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Car, KeyRound, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -197,7 +197,10 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 relative">
+      <Link to="/" className="absolute top-4 left-4 inline-flex items-center text-sm text-gray-600 hover:text-carservice-blue">
+        <ArrowLeft className="h-4 w-4 mr-1" /> Back to Home
+      </Link>
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <Link to="/" className="flex justify-center">

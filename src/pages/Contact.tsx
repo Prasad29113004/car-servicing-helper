@@ -69,8 +69,8 @@ const Contact = () => {
                       <div>
                         <h3 className="font-semibold text-carservice-dark">Phone</h3>
                         <p className="text-gray-500 mt-1">Mon-Fri from 8am to 6pm</p>
-                        <a href="tel:+15551234567" className="text-carservice-blue hover:underline mt-1 block">
-                          +1 (555) 123-4567
+                        <a href="tel:+917895687964" className="text-carservice-blue hover:underline mt-1 block">
+                          +91 78956 87964
                         </a>
                       </div>
                     </CardContent>
@@ -94,8 +94,8 @@ const Contact = () => {
                       <MapPin className="h-6 w-6 text-carservice-blue mt-1" />
                       <div>
                         <h3 className="font-semibold text-carservice-dark">Location</h3>
-                        <p className="text-gray-500 mt-1">123 Service Road</p>
-                        <p className="text-gray-500">Autoville, AV 12345</p>
+                        <p className="text-gray-500 mt-1">Dighori, Nagpur</p>
+                        <p className="text-gray-500">Maharashtra-440034</p>
                       </div>
                     </CardContent>
                   </Card>
