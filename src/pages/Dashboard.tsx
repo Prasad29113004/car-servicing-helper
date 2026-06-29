@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatDistance } from "date-fns";
 import InvoiceView from "@/components/InvoiceView";
+const navigate = useNavigate();
 
 interface Vehicle {
   id: string;
